@@ -1,0 +1,3147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CopilotConversation {
+  id           String              @id @default(cuid())
+  title        String?
+  userId       String
+  tenantId     String
+  contextType  CopilotContextType?
+  contextId    String?
+  contextLabel String?
+  isArchived   Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  actions      CopilotAction[]
+  tenant       Tenant              @relation("copilotConversations", fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                @relation("CopilotConversations", fields: [userId], references: [id], onDelete: Cascade)
+  messages     CopilotMessage[]
+  preferences  CopilotPreference[]
+
+  @@index([userId, updatedAt])
+  @@index([tenantId])
+  @@index([isArchived])
+}
+
+model CopilotMessage {
+  id                   String              @id @default(cuid())
+  conversationId       String
+  /// USER or ASSISTANT. Stored as a string so the model does not have to mirror
+  /// an enum that the application never filters on.
+  role                 String
+  content              String
+  /// Tools the assistant called to answer, with their arguments and outcomes.
+  /// Json because it is audit metadata, never queried relationally.
+  toolCalls            Json?
+  /// Records referenced in the answer, so the UI can render NAVO links.
+  citations            Json?
+  /// True when the user has not yet confirmed a proposed action.
+  requiresConfirmation Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  conversation         CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model CopilotAction {
+  id               String              @id @default(cuid())
+  conversationId   String
+  userId           String
+  tenantId         String
+  type             CopilotActionType
+  status           CopilotActionStatus @default(PROPOSED)
+  /// Human-readable summary of exactly what will happen.
+  summary          String
+  /// Validated tool arguments, replayed at execution time.
+  payload          Json
+  /// Record produced by a successful execution, for linking back into NAVO.
+  resultEntityType String?
+  resultEntityId   String?
+  resultSummary    String?
+  error            String?
+  createdAt        DateTime            @default(now())
+  confirmedAt      DateTime?
+  executedAt       DateTime?
+  conversation     CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant           Tenant              @relation("copilotActions", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model CopilotPreference {
+  id             String               @id @default(cuid())
+  conversationId String?
+  userId         String
+  tenantId       String
+  key            String
+  value          Json
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  conversation   CopilotConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant         Tenant               @relation("copilotPreferences", fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User                 @relation("CopilotPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model Tenant {
+  id                             String                          @id @default(cuid())
+  name                           String
+  slug                           String                          @unique
+  domain                         String?                         @unique
+  logo                           String?
+  settings                       Json?
+  isActive                       Boolean                         @default(true)
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
+  abuseReports                   AbuseReport[]
+  approvals                      Approval[]
+  auditLogs                      AuditLog[]
+  categories                     Category[]
+  connections                    Connection[]                    @relation("connections")
+  contactRestrictions            ContactRestriction[]
+  copilotActions                 CopilotAction[]                 @relation("copilotActions")
+  copilotConversations           CopilotConversation[]           @relation("copilotConversations")
+  copilotPreferences             CopilotPreference[]             @relation("copilotPreferences")
+  deals                          Deal[]                          @relation("deals")
+  dealRooms                      DealRoom[]                      @relation("dealRooms")
+  deliveryEvents                 DeliveryEvent[]                 @relation("deliveryEvents")
+  documents                      Document[]                      @relation("documents")
+  emailDeliveries                EmailDelivery[]
+  goodsReceipts                  GoodsReceipt[]                  @relation("goodsReceipts")
+  invoices                       Invoice[]                       @relation("invoices")
+  invoiceVerifications           InvoiceVerification[]           @relation("invoiceVerifications")
+  marketplaceInterests           MarketplaceInterest[]
+  negotiationMessages            NegotiationMessage[]            @relation("negotiationMessages")
+  notifications                  Notification[]
+  notificationPrefs              NotificationPreference[]
+  payments                       Payment[]                       @relation("payments")
+  policies                       Policy[]
+  priceBenchmarks                PriceBenchmark[]                @relation("priceBenchmarks")
+  requests                       ProcurementRequest[]
+  approvalAssignments            PurchaseApprovalAssignment[]
+  approvalDecisions              PurchaseApprovalDecision[]
+  purchaseApprovalPolicy         PurchaseApprovalPolicy?
+  purchaseApprovalRequests       PurchaseApprovalRequest[]
+  purchaseOrders                 PurchaseOrder[]                 @relation("purchaseOrders")
+  purchaseOrderApprovals         PurchaseOrderApproval[]         @relation("purchaseOrderApprovals")
+  quotes                         Quote[]
+  quoteAnalyses                  QuoteAnalysis[]                 @relation("quoteAnalyses")
+  rfqs                           RFQ[]
+  requestAttachments             RequestAttachment[]
+  requirementApprovalAssignments RequirementApprovalAssignment[]
+  requirementApprovalDecisions   RequirementApprovalDecision[]
+  requirementApprovalPolicy      RequirementApprovalPolicy?
+  requirementApprovalRequests    RequirementApprovalRequest[]
+  requirementDrafts              RequirementDraft[]
+  savingsRecords                 SavingsRecord[]                 @relation("savingsRecords")
+  users                          User[]
+  vendors                        Vendor[]
+  vendorAvailabilities           VendorAvailability[]            @relation("vendorAvailabilities")
+  vendorInvitations              VendorInvitation[]
+  vendorProfiles                 VendorProfile[]
+  vendorRatings                  VendorRating[]
+  vendorWorkingHours             VendorWorkingHours[]
+  vendorCapabilities             VendorCapability[]
+  vendorCertifications           VendorCertification[]
+  vendorDocuments                VendorDocument[]
+  vendorOnboardings              VendorOnboarding[]
+  vendorMatchings                VendorMatching[]
+   vendorAssignments              VendorAssignment[]
+   vendorCommercialHistories       VendorCommercialHistory[]
+   vendorDuplicates                VendorDuplicate[]
+   vendorEvents                    VendorEvent[]
+   commercialOffers                 CommercialOffer[]
+   commercialOfferSubmissions      CommercialOfferSubmission[]
+    offerEvents                    OfferEvent[]
+    dealExecutionEvents            DealExecutionEvent[]
+
+    @@index([slug])
+   @@index([domain])
+}
+
+model User {
+  id                                     String                          @id @default(cuid())
+  email                                  String
+  passwordHash                           String
+  firstName                              String
+  lastName                               String
+  avatar                                 String?
+  role                                   UserRole                        @default(REQUESTER)
+  isActive                               Boolean                         @default(true)
+  lastLoginAt                            DateTime?
+  tenantId                               String
+  createdAt                              DateTime                        @default(now())
+  updatedAt                              DateTime                        @updatedAt
+  vendorId                               String?
+  costCenter                             String?
+  department                             String?
+  abuseReportsFiled                      AbuseReport[]                   @relation("ReportReporter")
+  approvals                              Approval[]                      @relation("Approver")
+  auditLogs                              AuditLog[]
+  connectionsAsBuyer                     Connection[]                    @relation("ConnectionBuyer")
+  restrictionsAsBuyer                    ContactRestriction[]            @relation("RestrictionBuyer")
+  copilotConversations                   CopilotConversation[]           @relation("CopilotConversations")
+  copilotPreferences                     CopilotPreference[]             @relation("CopilotPreferences")
+   dealsAsBuyer                           Deal[]                          @relation("DealBuyer")
+   dealExecutionEventsAsActor             DealExecutionEvent[]          @relation("ExecutionActor")
+   dealMessagesRead                       DealMessageRead[]
+  dealRoomsAsBuyer                       DealRoom[]                      @relation("DealRoomBuyer")
+  deliveryEvents                         DeliveryEvent[]                 @relation("DeliveryEventActor")
+  uploadedDocuments                      Document[]                      @relation("DocumentUploader")
+  emailDeliveries                        EmailDelivery[]                 @relation("EmailDeliveryRecipient")
+  goodsReceipts                          GoodsReceipt[]                  @relation("GoodsReceiptRecorder")
+  invoicesSubmitted                      Invoice[]                       @relation("InvoiceSubmitter")
+  invoicesVerified                       InvoiceVerification[]           @relation("InvoiceVerifier")
+  marketplaceInterests                   MarketplaceInterest[]           @relation("InterestSubmitter")
+  notifications                          Notification[]                  @relation("UserNotifications")
+  notificationPrefs                      NotificationPreference[]        @relation("NotificationPreferenceUser")
+  paymentsRecorded                       Payment[]                       @relation("PaymentRecorder")
+  assignedRequests                       ProcurementRequest[]            @relation("Assignee")
+  requests                               ProcurementRequest[]            @relation("Requester")
+  approvalAssignmentsMade                PurchaseApprovalAssignment[]    @relation("ApprovalAssignmentActor")
+  approvalAssignmentsReceived            PurchaseApprovalAssignment[]    @relation("ApprovalAssignmentTo")
+  approvalDecisionsAssigned              PurchaseApprovalDecision[]      @relation("ApprovalAssignedApprover")
+  approvalDecisionsMade                  PurchaseApprovalDecision[]      @relation("ApprovalDecidedBy")
+  purchaseApprovalsConfirmed             PurchaseApprovalRequest[]       @relation("ApprovalConfirmedBy")
+  purchaseApprovalsSubmitted             PurchaseApprovalRequest[]       @relation("ApprovalSubmittedBy")
+  purchaseOrdersCreated                  PurchaseOrder[]                 @relation("PurchaseOrderBuyer")
+  purchaseOrderApprovals                 PurchaseOrderApproval[]         @relation("POApprover")
+  purchaseOrdersApproved                 PurchaseOrderApproval[]         @relation("POApprovedBy")
+  quotes                                 Quote[]                         @relation("QuoteSubmitter")
+  rfqs                                   RFQ[]                           @relation("RFQCreator")
+  requestAttachments                     RequestAttachment[]             @relation("RequestAttachmentUploader")
+  requirementApprovalAssignmentsMade     RequirementApprovalAssignment[] @relation("RequirementApprovalAssignmentActor")
+  requirementApprovalAssignmentsReceived RequirementApprovalAssignment[] @relation("RequirementApprovalAssignmentTo")
+  requirementApprovalDecisionsAssigned   RequirementApprovalDecision[]   @relation("RequirementApprovalAssignedApprover")
+  requirementApprovalDecisionsMade       RequirementApprovalDecision[]   @relation("RequirementApprovalDecidedBy")
+  requirementApprovalsApproved           RequirementApprovalRequest[]    @relation("RequirementApprovalApprovedBy")
+  requirementApprovalsSubmitted          RequirementApprovalRequest[]    @relation("RequirementApprovalSubmittedBy")
+  requirementDraftsConfirmed             RequirementDraft[]              @relation("RequirementDraftConfirmedBy")
+  requirementDrafts                      RequirementDraft[]              @relation("RequirementDraftUser")
+  savingsRecords                         SavingsRecord[]                 @relation("SavingsRecordBuyer")
+  tenant                                 Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor                                 Vendor?                         @relation("VendorUsers", fields: [vendorId], references: [id], onDelete: Cascade)
+  sentInvitations                        VendorInvitation[]              @relation("sentInvitations")
+  vendorRatings                          VendorRating[]                  @relation("VendorRatingBuyer")
+  vendorOnboardingApprovals              VendorOnboarding[]              @relation("VendorOnboardingReviewer")
+  vendorOnboardingSubmissions            VendorOnboarding[]              @relation("VendorOnboardingSubmitter")
+  vendorMatchings                         VendorMatching[]
+  vendorAssignments                      VendorAssignment[]              @relation("VendorAssignments")
+  vendorEvents                           VendorEvent[]                   @relation("VendorEventActor")
+  vendorDocumentsUploaded                VendorDocument[]                @relation("VendorDocumentUploader")
+  vendorDocumentsVerified                VendorDocument[]                @relation("VendorDocumentVerifier")
+   vendorDuplicatesConfirmed              VendorDuplicate[]
+   offerSubmissions                       CommercialOfferSubmission[] @relation("OfferSubmitter")
+   offerEvents                            OfferEvent[]
+
+   @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([email])
+  @@index([vendorId])
+  @@index([department])
+}
+
+model Category {
+  id                       String                  @id @default(cuid())
+  name                     String
+  description              String?
+  tenantId                 String
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  parentId                 String?
+  parent                   Category?               @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children                 Category[]              @relation("CategoryHierarchy")
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requests                 ProcurementRequest[]
+  approvalRules            PurchaseApprovalRule[]
+  requirementApprovalRules RequirementApprovalRule[]
+  vendors                  Vendor[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@index([parentId])
+}
+
+model Vendor {
+  id                       String                    @id @default(cuid())
+  name                     String
+  categoryId               String?
+  contactPerson            String?
+  email                    String?
+  phone                    String?
+  address                  String?
+  city                     String?
+  state                    String?
+  country                  String?
+  postalCode               String?
+  products                 String?
+  status                   VendorStatus              @default(PENDING_APPROVAL)
+  approvedAt               DateTime?
+  approvedBy               String?
+  notes                    String?
+  tenantId                 String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  businessHours            Json?
+  gstin                    String?
+  invitationToken          String?                   @unique
+  invitedAt                DateTime?
+  invitedById              String?
+  isPublic                 Boolean                   @default(false)
+  timeZone                 String?                   @default("Asia/Kolkata")
+  verificationNotes        String?
+  verificationStatus       VerificationStatus        @default(UNVERIFIED)
+  verifiedAt               DateTime?
+  verifiedBy               String?
+  vendorType               VendorType?
+  onboardingStatus         VendorOnboardingStatus    @default(INVITED)
+  reportsAgainst           AbuseReport[]             @relation("ReportVendor")
+  connections              Connection[]              @relation("Connections")
+  blockedBy                ContactRestriction[]      @relation("RestrictionSellerVendor")
+  deals                    Deal[]                    @relation("deals")
+  dealRooms                DealRoom[]                @relation("dealRooms")
+  invoices                 Invoice[]                 @relation("InvoiceVendor")
+  interests                MarketplaceInterest[]
+  messageAttachments       MessageAttachment[]       @relation("MessageAttachmentUploader")
+  purchaseApprovalRequests PurchaseApprovalRequest[]
+  purchaseOrders           PurchaseOrder[]           @relation("PurchaseOrderVendor")
+  quotes                   Quote[]
+  rfqs                     RFQVendor[]
+  savingsRecords           SavingsRecord[]           @relation("savingsRecords")
+  vendorUsers              User[]                    @relation("VendorUsers")
+  category                 Category?                 @relation(fields: [categoryId], references: [id])
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  availability             VendorAvailability?       @relation("availability")
+  invitations              VendorInvitation[]        @relation("vendorInvitations")
+  performance              VendorPerformance?
+  profile                  VendorProfile?
+  ratings                  VendorRating[]
+  workingHours             VendorWorkingHours[]
+  capabilities             VendorCapability[]
+  certifications           VendorCertification[]
+  documents                VendorDocument[]
+  onboarding               VendorOnboarding?
+  matchings                VendorMatching[]
+  assignments              VendorAssignment[]        @relation("VendorAssignments")
+  commercialHistories       VendorCommercialHistory[]
+  duplicateOf              VendorDuplicate[]         @relation("VendorDuplicatesPrimary")
+  potentialDuplicateOf      VendorDuplicate[]        @relation("VendorDuplicatesSecondary")
+   events                   VendorEvent[]
+   commercialOffers         CommercialOffer[]         @relation("OfferVendor")
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([invitationToken])
+  @@index([isPublic])
+}
+
+/// A buyer-side restriction on a vendor. Enforced in `communication.service.ts`
+/// on every seller-initiated path, so a restriction cannot be bypassed by
+/// calling an endpoint the UI happens to hide.
+model ContactRestriction {
+  id        String              @id @default(cuid())
+  tenantId  String
+  /// The buyer who set it.
+  buyerId   String
+  vendorId  String
+  /// The requirement it applies to, when scoped to one. Null = the whole buyer.
+  requestId String?
+  kind      RestrictionKind
+  reason    String?
+  /// Only meaningful for MUTE. A BLOCK never expires.
+  expiresAt DateTime?
+  createdAt DateTime            @default(now())
+  buyer     User                @relation("RestrictionBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  request   ProcurementRequest? @relation("RestrictionRequester", fields: [requestId], references: [id], onDelete: Cascade)
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor    Vendor              @relation("RestrictionSellerVendor", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([buyerId, vendorId, requestId, kind])
+  @@index([tenantId])
+  @@index([vendorId])
+}
+
+/// An abuse report filed by one party against a vendor.
+model AbuseReport {
+  id         String       @id @default(cuid())
+  tenantId   String
+  reporterId String
+  vendorId   String
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(OPEN)
+  resolution String?
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  reporter   User         @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor     Vendor       @relation("ReportVendor", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([vendorId])
+}
+
+/// Per-user, per-event delivery preferences.
+model NotificationPreference {
+  id        String                @id @default(cuid())
+  userId    String
+  tenantId  String
+  eventType String
+  /// IMMEDIATE sends at once; DIGEST batches; OFF suppresses entirely.
+  frequency NotificationFrequency @default(IMMEDIATE)
+  updatedAt DateTime              @updatedAt
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User                  @relation("NotificationPreferenceUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventType])
+  @@index([tenantId])
+}
+
+/// The durable outbox. One row per intended email.
+///
+/// `dedupeKey` is the mechanism that prevents duplicate sends: a unique index
+/// means a concurrent or repeated trigger loses the insert race instead of
+/// mailing the user twice. `nextAttemptAt` supports retry of transient
+/// failures; a row past `attempts` is marked PERMANENTLY_FAILED for an admin.
+model EmailDelivery {
+  id             String              @id @default(cuid())
+  tenantId       String
+  recipientId    String
+  recipientEmail String
+  eventType      String
+  subject        String
+  /// Rendered text body. Never contains confidential commercial terms: the
+  /// builder is responsible for summary-only previews.
+  bodyText       String
+  bodyHtml       String?
+  /// In-app route the email links to. Authentication is required on open.
+  linkPath       String
+  status         EmailDeliveryStatus @default(PENDING)
+  /// Unique per logical notification. For a batched digest this is per user per
+  /// window, so a burst of messages yields one email.
+  dedupeKey      String              @unique
+  attempts       Int                 @default(0)
+  lastError      String?
+  nextAttemptAt  DateTime            @default(now())
+  sentAt         DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  recipient      User                @relation("EmailDeliveryRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([recipientId])
+  @@index([tenantId])
+}
+
+model VendorPerformance {
+  id             String    @id @default(cuid())
+  vendorId       String    @unique
+  totalOrders    Int       @default(0)
+  onTimeDelivery Float     @default(0)
+  qualityRating  Float     @default(0)
+  responsiveness Float     @default(0)
+  lastOrderDate  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  vendor         Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model ProcurementRequest {
+  id                          String                       @id @default(cuid())
+  title                       String
+  description                 String
+  categoryId                  String?
+  item                        String
+  quantity                    Int
+  unit                        String?
+  location                    String
+  requiredDate                DateTime
+  specifications              String?
+  estimatedBudget             Float?
+  priority                    Int                          @default(1)
+  status                      RequestStatus                @default(DRAFT)
+  requesterId                 String
+  assigneeId                  String?
+  tenantId                    String
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  /// Set when the requirement became visible in the open market.
+  publishedAt                 DateTime?
+  /// Sellers must submit by this time. Null means no deadline.
+  quotationDeadline           DateTime?
+  /// PRIVATE requirements are invite-only; OPEN_MARKET ones are discoverable.
+  /// Defaults to PRIVATE so an existing requirement can never become public
+  /// by omission - publishing is always a deliberate act.
+  visibility                  RequestVisibility            @default(PRIVATE)
+  costCenter                  String?
+  /// Department and cost centre the purchase is charged to. Approval rules scope
+  /// on these, so they are captured on the requirement rather than inferred from
+  /// the requester at submission time.
+  department                  String?
+  approvals                   Approval[]
+  connections                 Connection[]
+  contactRestrictions         ContactRestriction[]         @relation("RestrictionRequester")
+  deals                       Deal[]
+  dealRooms                   DealRoom[]
+  extractedReq                ExtractedRequirement?
+  interests                   MarketplaceInterest[]
+  assignee                    User?                        @relation("Assignee", fields: [assigneeId], references: [id])
+  category                    Category?                    @relation(fields: [categoryId], references: [id])
+  requester                   User                         @relation("Requester", fields: [requesterId], references: [id])
+  tenant                      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseApprovalRequests    PurchaseApprovalRequest[]
+  purchaseOrders              PurchaseOrder[]
+  rfqs                        RFQ[]
+  recommendation              Recommendation?
+  attachments                 RequestAttachment[]
+  requirementApprovalRequests RequirementApprovalRequest[]
+  requirementDraft            RequirementDraft?            @relation("RequirementDraftRequest")
+  savingsRecords              SavingsRecord[]              @relation("savingsRecords")
+   vendorMatchings             VendorMatching[]
+   vendorAssignments           VendorAssignment[]
+   commercialOffers            CommercialOffer[]
+
+   @@index([tenantId])
+  @@index([status])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([visibility, status, tenantId])
+}
+
+/// A file attached to a requirement. Buyer-authored only; a seller's
+/// equivalent lives on their quotation, so private buyer documents can never
+/// be written by a seller.
+model RequestAttachment {
+  id           String             @id @default(cuid())
+  requestId    String
+  fileName     String
+  mimeType     String
+  size         Int
+  content      Bytes
+  uploadedById String
+  tenantId     String
+  createdAt    DateTime           @default(now())
+  request      ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy   User               @relation("RequestAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([requestId])
+  @@index([tenantId])
+}
+
+/// A seller's recorded interest in an open-market requirement.
+///
+/// This row is the record of a permitted buyer-seller interaction: a seller may
+/// only be messaged once they have expressed interest, been invited, or hold an
+/// accepted connection. It is created by the seller's own action, so it cannot
+/// be forged on the buyer's behalf.
+model MarketplaceInterest {
+  id            String             @id @default(cuid())
+  requestId     String
+  vendorId      String
+  submittedById String
+  status        InterestStatus     @default(EXPRESSED)
+  note          String?
+  /// Set once the seller submits a quotation against this requirement.
+  quoteId       String?            @unique
+  tenantId      String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  quote         Quote?             @relation(fields: [quoteId], references: [id])
+  request       ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  submittedBy   User               @relation("InterestSubmitter", fields: [submittedById], references: [id], onDelete: Cascade)
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor        Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, vendorId])
+  @@index([tenantId])
+  @@index([vendorId])
+}
+
+model ExtractedRequirement {
+  id             String             @id @default(cuid())
+  requestId      String             @unique
+  category       String?
+  item           String?
+  quantity       Int?
+  unit           String?
+  location       String?
+  requiredDate   DateTime?
+  specifications String?
+  budget         Float?
+  missingFields  String[]
+  confidence     Float              @default(0)
+  rawResponse    Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  request        ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model RFQ {
+  id                   String             @id @default(cuid())
+  rfqNumber            String
+  requestId            String
+  title                String
+  description          String
+  quantity             Int
+  specifications       String?
+  deliveryLocation     String
+  requiredDeliveryDate DateTime
+  submissionDeadline   DateTime
+  status               RFQStatus          @default(DRAFT)
+  createdById          String
+  tenantId             String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  quotes               Quote[]
+  createdBy            User               @relation("RFQCreator", fields: [createdById], references: [id])
+  request              ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendors              RFQVendor[]
+
+  @@unique([rfqNumber, tenantId])
+  @@index([tenantId])
+  @@index([requestId])
+  @@index([status])
+}
+
+model RFQVendor {
+  id          String    @id @default(cuid())
+  rfqId       String
+  vendorId    String
+  invitedAt   DateTime  @default(now())
+  respondedAt DateTime?
+  status      String    @default("INVITED")
+  rfq         RFQ       @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor      Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@index([vendorId])
+}
+
+model Quote {
+  id                   String               @id @default(cuid())
+  rfqId                String
+  vendorId             String
+  unitPrice            Float
+  quantity             Int
+  taxRate              Float                @default(0)
+  taxAmount            Float                @default(0)
+  freightAmount        Float                @default(0)
+  installationAmount   Float                @default(0)
+  warrantyMonths       Int?
+  deliveryTimelineDays Int?
+  paymentTerms         String?
+  validityDays         Int?
+  otherCharges         Float                @default(0)
+  otherChargesDetails  String?
+  attachments          String[]
+  status               QuoteStatus          @default(SUBMITTED)
+  submittedAt          DateTime             @default(now())
+  reviewedAt           DateTime?
+  reviewedBy           String?
+  tenantId             String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  marketplaceInterest  MarketplaceInterest?
+  submittedBy          User?                @relation("QuoteSubmitter", fields: [reviewedBy], references: [id])
+  rfq                  RFQ                  @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor               Vendor               @relation(fields: [vendorId], references: [id])
+  analyses             QuoteAnalysis[]      @relation("quoteAnalyses")
+  comparison           QuoteComparison?
+
+  @@index([tenantId])
+  @@index([rfqId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+model QuoteComparison {
+  id                 String   @id @default(cuid())
+  quoteId            String   @unique
+  basePrice          Float
+  taxAmount          Float
+  freightAmount      Float
+  installationAmount Float
+  otherCharges       Float
+  totalLandedCost    Float
+  deliveryDays       Int?
+  paymentTerms       String?
+  warrantyMonths     Int?
+  validityDays       Int?
+  score              Float?
+  rank               Int?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  quote              Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+model Recommendation {
+  id                 String             @id @default(cuid())
+  requestId          String             @unique
+  recommendedQuoteId String?
+  reasoning          String
+  factors            Json
+  commercialValue    Float
+  deliveryScore      Float
+  specificationScore Float
+  vendorStatusScore  Float
+  historicalScore    Float
+  benchmarkScore     Float
+  paymentTermsScore  Float
+  warrantyScore      Float
+  riskScore          Float
+  totalScore         Float
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  request            ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Approval {
+  id         String             @id @default(cuid())
+  requestId  String
+  approverId String
+  status     ApprovalStatus     @default(PENDING)
+  comments   String?
+  decidedAt  DateTime?
+  tenantId   String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  approver   User               @relation("Approver", fields: [approverId], references: [id])
+  request    ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([requestId])
+  @@index([approverId])
+  @@index([status])
+}
+
+model Policy {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  rules       Json
+  tenantId    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+/// One organization's manager-approval configuration.
+///
+/// This is the single source of truth for "who must approve what, and when".
+/// Monetary thresholds live here and only here - never as constants in code -
+/// so an organization sets its own numbers and the rule that gated each
+/// historical purchase can be replayed from the row.
+///
+/// `version` increments on every change. A submitted request records the version
+/// and the resolved rule it used, so later policy edits cannot retroactively
+/// change what a past approval meant.
+model PurchaseApprovalPolicy {
+  id                                String                    @id @default(cuid())
+  tenantId                          String                    @unique
+  name                              String                    @default("Purchase approval policy")
+  description                       String?
+  /// The currency every threshold on this policy is expressed in. Amounts are
+  /// compared in Decimal and only against rules carrying the same currency;
+  /// NAVO performs no implicit FX conversion, so a rule in another currency is
+  /// rejected at configuration time rather than silently mis-comparing.
+  currency                          String                    @default("INR")
+  isActive                          Boolean                   @default(true)
+  version                           Int                       @default(1)
+  /// Whether taxes count toward the amount compared against thresholds.
+  /// Excluding them lets an organization authorize by net spend rather than by
+  /// cash out of the door; the choice is recorded on the policy and echoed into
+  /// each request's snapshot.
+  includeTaxesInThreshold           Boolean                   @default(true)
+  /// Whether freight, installation and other charges count toward thresholds.
+  includeDeliveryChargesInThreshold Boolean                   @default(true)
+  /// Purchases whose threshold amount is strictly below this proceed without a
+  /// manager decision. Null disables the exemption entirely (every purchase
+  /// needs approval). This is the "small purchase" allowance; the amount is the
+  /// organization's to choose and is expressed in `currency`.
+  autoApproveBelowAmount            Decimal?                  @db.Decimal(18, 4)
+  /// Off by default: a buyer must not approve their own spend. An organization
+  /// may permit it, but only by setting this flag *and* recording a written
+  /// justification, which is retained on the policy and copied into the audit
+  /// trail of every decision taken under it.
+  allowSelfApproval                 Boolean                   @default(false)
+  selfApprovalJustification         String?
+  /// Which commercial changes force reapproval of an already-approved purchase,
+  /// e.g. { "priceIncrease": true, "priceDecrease": false, "quantity": true }.
+  reapprovalRules                   Json?
+  /// Guards against splitting one purchase into several sub-threshold requests.
+  /// Compared on submitter + vendor + item within the window.
+  splitGuardEnabled                 Boolean                   @default(true)
+  splitGuardWindowDays              Int                       @default(30)
+  updatedById                       String?
+  createdAt                         DateTime                  @default(now())
+  updatedAt                         DateTime                  @updatedAt
+  tenant                            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requests                          PurchaseApprovalRequest[]
+  rules                             PurchaseApprovalRule[]
+
+  @@index([tenantId])
+}
+
+/// A scoped condition plus the approval hierarchy it requires.
+///
+/// Evaluation is "most specific active rule wins", where specificity counts the
+/// scope attributes a rule actually names (department, category, cost centre,
+/// and a bounded amount range). Ties break on the lower `priority`, so an
+/// administrator can force an ordering. A rule naming no scope attributes is the
+/// organization-wide fallback and therefore the least specific.
+model PurchaseApprovalRule {
+  id              String                    @id @default(cuid())
+  tenantId        String
+  policyId        String
+  name            String
+  /// Lower runs first when two rules are equally specific.
+  priority        Int                       @default(100)
+  isActive        Boolean                   @default(true)
+  /// Inclusive lower bound, exclusive upper bound, both in the policy currency.
+  /// Null on either side means unbounded on that side.
+  minAmount       Decimal?                  @db.Decimal(18, 4)
+  maxAmount       Decimal?                  @db.Decimal(18, 4)
+  /// Scope. A null attribute matches any value; a non-null attribute must equal
+  /// the purchase's value.
+  department      String?
+  categoryId      String?
+  costCenter      String?
+  /// When false, purchases matching this rule need no manager decision at all.
+  requireApproval Boolean                   @default(true)
+  /// Ordered approval hierarchy, e.g.
+  /// [{ "level": 1, "requiredRole": "PROCUREMENT_MANAGER", "label": "Procurement review" },
+  /// { "level": 2, "requiredRole": "FINANCE_APPROVER", "label": "Finance review" }]
+  /// Evaluated strictly in ascending order. `approverIds` names specific
+  /// approvers for the level; when empty, any active user holding
+  /// `requiredRole` may decide.
+  levels          Json
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  requests        PurchaseApprovalRequest[]
+  category        Category?                 @relation(fields: [categoryId], references: [id])
+  policy          PurchaseApprovalPolicy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive, priority])
+  @@index([policyId])
+  @@index([categoryId])
+}
+
+/// One purchase authorization request: a buyer asking a manager to release
+/// company funds for a specific negotiated offer.
+///
+/// The commercial block is an immutable snapshot of the offer as submitted. It is
+/// never edited in place - a changed offer becomes a new revision - which is
+/// what makes the recorded total the total that was actually approved.
+model PurchaseApprovalRequest {
+  id                    String                     @id @default(cuid())
+  /// Human-facing document reference, unique per tenant.
+  reference             String
+  tenantId              String
+  /// The requirement, vendor, negotiation room and final offer this authorizes.
+  requestId             String
+  vendorId              String
+   dealRoomId             String?
+   /// At most one authorization per deal. Enforced here rather than in a service
+   /// so a concurrent second submission cannot both pass the check.
+   dealId                 String?                    @unique
+   offerId               String?
+   quoteId               String?
+   /// The selected winning submission from the 4-offer commercial engine.
+   /// Present when the approval was submitted from a CommercialOfferSubmission;
+   /// null when it came from the negotiation DealOffer path.
+   selectedSubmissionId   String?
+   submittedById          String
+  status                PurchaseApprovalStatus     @default(PENDING_APPROVAL)
+  currency              String                     @default("INR")
+  unitPrice             Decimal                    @db.Decimal(18, 4)
+  quantity              Int
+  taxRate               Decimal                    @default(0) @db.Decimal(9, 4)
+  taxAmount             Decimal                    @default(0) @db.Decimal(18, 4)
+  freightAmount         Decimal                    @default(0) @db.Decimal(18, 4)
+  installationAmount    Decimal                    @default(0) @db.Decimal(18, 4)
+  otherCharges          Decimal                    @default(0) @db.Decimal(18, 4)
+  subtotal              Decimal                    @db.Decimal(18, 4)
+  /// Everything the buyer will pay: subtotal + tax + freight + installation + other.
+  totalAmount           Decimal                    @db.Decimal(18, 4)
+  /// The amount actually compared against thresholds, after applying the
+  /// policy's tax/charge inclusion flags. Stored so a reviewer can see exactly
+  /// which figure the rule was evaluated against.
+  thresholdAmount       Decimal                    @db.Decimal(18, 4)
+  paymentTerms          String?
+  deliveryTimelineDays  Int?
+  warrantyMonths        Int?
+  /// Free-text delivery schedule agreed with the seller.
+  deliverySchedule      String?
+  otherChargesDetails   String?
+  /// Seller-supplied supporting documents, copied from the offer at submission.
+  documents             Json?
+  /// Null only when the organization has no active policy, in which case the
+  /// request is auto-approved and records why.
+  policyId              String?
+  policyVersion         Int?
+  appliedRuleId         String?
+  /// Verbatim copy of the policy flags and the resolved rule's levels, so the
+  /// decision can be explained years later without replaying configuration.
+  policySnapshot        Json?
+  ruleSnapshot          Json?
+  requesterComment      String?
+  /// Summary of the negotiation that produced this offer: every offer in the
+  /// room, in order, plus message and offer counts. Stored rather than joined so
+  /// an approver sees the history that existed when they decided.
+  negotiationSnapshot   Json?
+  /// The level currently awaiting a decision. Advanced as levels are approved.
+  currentLevel          Int                        @default(1)
+  revision              Int                        @default(1)
+  /// Chain of revisions. A revised offer supersedes its predecessor rather than
+  /// overwriting it, so the previously approved figures and the decision given
+  /// against them both survive.
+  parentRequestId       String?
+  supersededById        String?
+  supersedeReason       String?
+  supersededAt          DateTime?
+  decidedAt             DateTime?
+  purchaseConfirmedAt   DateTime?
+  purchaseConfirmedById String?
+  /// The purchase order this authorization released. One-to-one, so a second
+  /// order cannot be raised against the same authorization.
+  purchaseOrderId       String?                    @unique
+  cancelledAt           DateTime?
+  cancelReason          String?
+  dueAt                 DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  decisions             PurchaseApprovalDecision[]
+  appliedRule           PurchaseApprovalRule?      @relation(fields: [appliedRuleId], references: [id])
+  deal                  Deal?                      @relation(fields: [dealId], references: [id])
+  dealRoom              DealRoom?                  @relation(fields: [dealRoomId], references: [id])
+   offer                 DealOffer?                 @relation(fields: [offerId], references: [id])
+   policy                PurchaseApprovalPolicy?    @relation(fields: [policyId], references: [id])
+   purchaseConfirmedBy   User?                      @relation("ApprovalConfirmedBy", fields: [purchaseConfirmedById], references: [id])
+   purchaseOrder         PurchaseOrder?             @relation(fields: [purchaseOrderId], references: [id])
+   request               ProcurementRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+   selectedSubmission    CommercialOfferSubmission? @relation(fields: [selectedSubmissionId], references: [id])
+   submittedBy           User                       @relation("ApprovalSubmittedBy", fields: [submittedById], references: [id])
+   tenant                Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   vendor                Vendor                     @relation(fields: [vendorId], references: [id])
+
+   @@unique([reference, tenantId])
+   @@unique([offerId, tenantId])
+   @@index([tenantId, status])
+   @@index([requestId, status])
+   @@index([submittedById, status])
+   @@index([vendorId])
+   @@index([offerId])
+   @@index([selectedSubmissionId])
+   @@index([dealId])
+}
+
+/// One approval level of a purchase authorization request.
+///
+/// Levels are created up front from the applied rule, so the hierarchy a request
+/// was routed through is visible before anyone has acted on it, and a level can
+/// never be quietly added after the fact.
+model PurchaseApprovalDecision {
+  id                        String                         @id @default(cuid())
+  tenantId                  String
+  purchaseApprovalRequestId String
+  level                     Int
+  requiredRole              UserRole
+  label                     String?
+  status                    PurchaseApprovalDecisionStatus @default(PENDING)
+  /// The specific approver this level is routed to, resolved at submission from
+  /// the rule's `approverIds` or from a user holding `requiredRole`. Null means
+  /// the level is open to any active holder of `requiredRole`.
+  assignedApproverId        String?
+  /// Set when the level was reassigned or delegated, so a decision can be traced
+  /// to the person who was actually asked.
+  delegatedFromApproverId   String?
+  delegationReason          String?
+  decidedById               String?
+  /// Mandatory for REJECTED and CHANGES_REQUESTED; enforced in the service.
+  comments                  String?
+  decidedAt                 DateTime?
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
+  assignments               PurchaseApprovalAssignment[]
+  assignedApprover          User?                          @relation("ApprovalAssignedApprover", fields: [assignedApproverId], references: [id])
+  decidedBy                 User?                          @relation("ApprovalDecidedBy", fields: [decidedById], references: [id])
+  purchaseApprovalRequest   PurchaseApprovalRequest        @relation(fields: [purchaseApprovalRequestId], references: [id], onDelete: Cascade)
+  tenant                    Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseApprovalRequestId, level])
+  @@index([tenantId, status])
+  @@index([assignedApproverId, status])
+}
+
+/// Permanent record of every reassignment or delegation of an approval level.
+///
+/// Separate from `PurchaseApprovalDecision` because the decision row is updated
+/// in place, whereas who was asked must survive every subsequent change.
+model PurchaseApprovalAssignment {
+  id             String                   @id @default(cuid())
+  tenantId       String
+  decisionId     String
+  fromApproverId String?
+  toApproverId   String
+  reason         String
+  createdById    String
+  createdAt      DateTime                 @default(now())
+  createdBy      User                     @relation("ApprovalAssignmentActor", fields: [createdById], references: [id])
+  decision       PurchaseApprovalDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  toApprover     User                     @relation("ApprovalAssignmentTo", fields: [toApproverId], references: [id])
+
+  @@index([tenantId])
+  @@index([decisionId])
+  @@index([toApproverId])
+}
+
+model AuditLog {
+  id               String      @id @default(cuid())
+  userId           String
+  action           AuditAction
+  entityType       String
+  entityId         String
+  previousStatus   String?
+  newStatus        String?
+  decision         String?
+  aiRecommendation String?
+  metadata         Json?
+  tenantId         String
+  createdAt        DateTime    @default(now())
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User        @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Connection {
+  id          String             @id @default(cuid())
+  requestId   String
+  buyerId     String
+  vendorId    String
+  status      ConnectionStatus   @default(PENDING)
+  initiatedAt DateTime           @default(now())
+  respondedAt DateTime?
+  tenantId    String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  buyer       User               @relation("ConnectionBuyer", fields: [buyerId], references: [id])
+  request     ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant      Tenant             @relation("connections", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor      Vendor             @relation("Connections", fields: [vendorId], references: [id], onDelete: Cascade)
+  dealRoom    DealRoom?
+
+  @@unique([requestId, vendorId])
+  @@index([tenantId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+model DealRoom {
+  id                       String                    @id @default(cuid())
+  connectionId             String                    @unique
+  requestId                String
+  buyerId                  String
+  vendorId                 String
+  status                   DealRoomStatus            @default(ACTIVE)
+  closedAt                 DateTime?
+  dealId                   String?
+  tenantId                 String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  deal                     Deal?
+  messages                 DealMessage[]
+  offers                   DealOffer[]
+  buyer                    User                      @relation("DealRoomBuyer", fields: [buyerId], references: [id])
+  connection               Connection                @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  request                  ProcurementRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant                   Tenant                    @relation("dealRooms", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor                   Vendor                    @relation("dealRooms", fields: [vendorId], references: [id], onDelete: Cascade)
+  negotiationMessages      NegotiationMessage[]
+  purchaseApprovalRequests PurchaseApprovalRequest[]
+
+  @@index([tenantId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+model DealMessage {
+  id           String              @id @default(cuid())
+  dealRoomId   String
+  senderId     String
+  senderRole   String
+  content      String
+  messageType  String              @default("TEXT")
+  createdAt    DateTime            @default(now())
+  dealRoom     DealRoom            @relation(fields: [dealRoomId], references: [id], onDelete: Cascade)
+  readReceipts DealMessageRead[]
+  attachments  MessageAttachment[]
+
+  @@index([dealRoomId])
+  @@index([createdAt])
+}
+
+/// Per-recipient read state within a deal room. One row per (reader, message).
+model DealMessageRead {
+  id         String      @id @default(cuid())
+  messageId  String
+  readerId   String
+  dealRoomId String
+  readAt     DateTime    @default(now())
+  message    DealMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reader     User        @relation(fields: [readerId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, readerId])
+  @@index([readerId, dealRoomId])
+}
+
+/// A file shared inside a negotiation room.
+///
+/// Access requires deal-room participation, checked on every read, so an
+/// attachment can never be fetched by id alone.
+model MessageAttachment {
+  id           String      @id @default(cuid())
+  messageId    String
+  dealRoomId   String
+  fileName     String
+  mimeType     String
+  size         Int
+  content      Bytes
+  uploadedById String
+  createdAt    DateTime    @default(now())
+  message      DealMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy   Vendor      @relation("MessageAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([messageId])
+  @@index([dealRoomId])
+}
+
+model DealOffer {
+  id                       String                    @id @default(cuid())
+  dealRoomId               String
+  submittedById            String
+  submittedByRole          String
+  unitPrice                Float
+  quantity                 Int
+  gst                      Float                     @default(0)
+  freightAmount            Float                     @default(0)
+  installationAmount       Float                     @default(0)
+  warrantyMonths           Int?
+  deliveryTimelineDays     Int?
+  paymentTerms             String?
+  validityDays             Int?
+  otherCharges             Float                     @default(0)
+  otherChargesDetails      String?
+  status                   DealOfferStatus           @default(ACTIVE)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  acceptedDeal             Deal?                     @relation("AcceptedDeal")
+  dealRoom                 DealRoom                  @relation(fields: [dealRoomId], references: [id], onDelete: Cascade)
+  purchaseApprovalRequests PurchaseApprovalRequest[]
+
+  @@index([dealRoomId])
+  @@index([status])
+}
+
+model Deal {
+  id                      String                   @id @default(cuid())
+  dealNumber              String                   @unique
+  dealRoomId              String?                  @unique
+  requestId               String
+  buyerId                 String
+  vendorId                String
+  status                  DealStatus               @default(ACCEPTED)
+  acceptedOfferId         String?                  @unique
+  tenantId                String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  /// Execution phase of the deal lifecycle: procurement → fulfillment → closure.
+  executionStatus         DealExecutionStatus      @default(PENDING_EXECUTION)
+  /// How the underlying requirement is fulfilled. Derived from the request's offerType.
+  executionType           DealExecutionType?
+  /// The selected commercial submission that this deal is based on.
+  selectedSubmissionId    String?                  @unique
+  /// Immutable snapshot of the winning submission's commercial terms, copied at deal creation.
+  commercialSnapshot      Json?
+  /// When the supplier confirmed acceptance of the deal.
+  supplierConfirmedAt     DateTime?
+  supplierConfirmedById   String?
+  acceptedOffer           DealOffer?               @relation("AcceptedDeal", fields: [acceptedOfferId], references: [id])
+  buyer                   User                     @relation("DealBuyer", fields: [buyerId], references: [id])
+  dealRoom                DealRoom?                 @relation(fields: [dealRoomId], references: [id], onDelete: Cascade)
+  request                 ProcurementRequest       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant                  Tenant                   @relation("deals", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor                  Vendor                   @relation("deals", fields: [vendorId], references: [id], onDelete: Cascade)
+  purchaseApprovalRequest PurchaseApprovalRequest?
+  purchaseOrder           PurchaseOrder?
+  selectedSubmission      CommercialOfferSubmission? @relation(fields: [selectedSubmissionId], references: [id])
+  executionEvents         DealExecutionEvent[]
+
+  @@index([tenantId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([dealNumber])
+  @@index([executionStatus])
+}
+
+model VendorAvailability {
+  id         String   @id @default(cuid())
+  vendorId   String   @unique
+  tenantId   String
+  isOnline   Boolean  @default(false)
+  isBusy     Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation("vendorAvailabilities", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor     Vendor   @relation("availability", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([isOnline])
+  @@index([tenantId])
+}
+
+model VendorInvitation {
+  id          String           @id @default(cuid())
+  vendorId    String?
+  invitedById String
+  email       String
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  role        String?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  tenantId    String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  invitedBy   User             @relation("sentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor      Vendor?          @relation("vendorInvitations", fields: [vendorId], references: [id])
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+}
+
+model VendorWorkingHours {
+  id        String   @id @default(cuid())
+  vendorId  String
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  isClosed  Boolean  @default(false)
+  timeZone  String   @default("Asia/Kolkata")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, dayOfWeek])
+  @@index([tenantId])
+  @@index([vendorId])
+}
+
+model VendorProfile {
+  id                String   @id @default(cuid())
+  vendorId          String   @unique
+  companyName       String?
+  registrationNo    String?
+  gstin             String?
+  panNumber         String?
+  msmeNumber        String?
+  website           String?
+  description       String?
+  certifications    String?
+  capabilities      Json?
+  deliveryLocations Json?
+  paymentTerms      String?
+  bankDetails       Json?
+  documents         Json?
+  tenantId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model VendorRating {
+  id         String    @id @default(cuid())
+  vendorId   String
+  buyerId    String
+  rating     Int
+  feedback   String?
+  categories Json?
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+  verifiedBy String?
+  tenantId   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  buyer      User      @relation("VendorRatingBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor     Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, buyerId])
+  @@index([tenantId])
+  @@index([vendorId])
+   @@index([buyerId])
+}
+
+/// Capability profile for a vendor. `matchingFactors` is a JSON bag of
+/// factor→weight pairs (weight = 0..1). The matching engine reads this to
+/// score vendors against procurement requirements.
+model VendorCapability {
+  id               String            @id @default(cuid())
+  vendorId         String
+  tenantId         String
+  /// Capability name
+  name             String?
+  /// Capability category or tag, e.g. "cloud-migration", "sap-consulting".
+  category         String?
+  /// Free-text description of the capability.
+  description      String?
+  /// Proficiency level, e.g. "Beginner", "Intermediate", "Expert"
+  proficiencyLevel String?
+  /// factor→weight pairs, e.g. { "CATEGORY_EXPERIENCE": 0.3, ... }
+  matchingFactors  Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor           Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([category])
+}
+
+/// A certification held by a vendor (e.g. ISO-9001, GSTIN, etc.).
+/// The `status` tracks verification lifecycle; `validUntil` triggers
+/// automatic expiry warnings via `VendorOnboarding` status checks.
+model VendorCertification {
+  id               String                   @id @default(cuid())
+  vendorId         String
+  tenantId         String
+  /// e.g. "ISO 9001:2015", "GSTIN"
+  name             String
+  issuingBody      String?
+  status           VendorCertificationStatus @default(SELF_DECLARED)
+  /// Issued on / expires on
+  validFrom        DateTime?
+  validUntil       DateTime?
+  /// Link to the uploaded supporting document
+  documentId       String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  document         VendorDocument?          @relation("CertificationDocument", fields: [documentId], references: [id])
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor           Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([name])
+}
+
+/// A document uploaded by or for a vendor during onboarding or certification.
+model VendorDocument {
+  id                   String              @id @default(cuid())
+  vendorId             String
+  tenantId             String
+  type                 VendorDocumentType
+  /// Original file name
+  fileName             String
+  /// MIME type, e.g. application/pdf
+  mimeType             String?
+  sizeBytes            Int
+  /// Storage path or URL
+  path                 String
+  /// User who uploaded the document
+  uploadedById        String?
+  /// Optional verification status
+  status               VendorCertificationStatus @default(SELF_DECLARED)
+  verifiedAt           DateTime?
+  verifiedById         String?
+  /// Back-reference: certifications that use this document
+  certifications       VendorCertification[] @relation("CertificationDocument")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy           User?               @relation("VendorDocumentUploader", fields: [uploadedById], references: [id])
+  verifiedBy           User?               @relation("VendorDocumentVerifier", fields: [verifiedById], references: [id])
+  vendor               Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([type])
+}
+
+/// Onboarding state machine for a vendor within a tenant.
+/// State machine: NOT_STARTED → IN_PROGRESS → PENDING_REVIEW → APPROVED
+///                                              ↓         REJECTED / ON_HOLD
+model VendorOnboarding {
+  id                   String                    @id @default(cuid())
+  vendorId             String                    @unique
+  tenantId             String
+  status               VendorOnboardingStatus    @default(INVITED)
+  /// The user who submitted the onboarding for review
+  submittedById        String?
+  /// The user who approved/rejected
+  reviewedById         String?
+  startedAt            DateTime?
+  submittedAt          DateTime?
+  reviewedAt           DateTime?
+  /// Comments / notes from reviewers
+  reviewComments       String?
+  /// Documents still missing (server-computed list of required doc types)
+  missingDocuments     Json?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  reviewedBy           User?                     @relation("VendorOnboardingReviewer", fields: [reviewedById], references: [id])
+  submittedBy          User?                     @relation("VendorOnboardingSubmitter", fields: [submittedById], references: [id])
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor               Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+/// A matching run: how a vendor scored against a procurement request.
+/// `factorScores` is a JSON bag of factor→score pairs (score 0..100).
+model VendorMatching {
+  id                 String    @id @default(cuid())
+  requestId          String
+  vendorId           String
+  tenantId           String
+  /// Overall match score 0..100
+  score              Float
+  /// factor→score pairs
+  factorScores       Json
+  /// factor→weight pairs used for this run
+  matchingFactors    Json
+  /// Reason snippets for the score
+  rationale          String?
+  matchedById        String?
+  createdAt          DateTime  @default(now())
+  matchedBy          User?     @relation(fields: [matchedById], references: [id])
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  request            ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([requestId])
+  @@index([vendorId])
+  @@index([score])
+}
+
+/// Private routing between a matched vendor and a procurement request.
+/// A vendor can only access requests they are assigned to.
+model VendorAssignment {
+  id                 String    @id @default(cuid())
+  requestId          String
+  vendorId           String
+  tenantId           String
+  assignedById       String?
+  assignedAt         DateTime  @default(now())
+  /// When the vendor accepted the assignment
+  acceptedAt         DateTime?
+  /// When the vendor declined
+  declinedAt         DateTime?
+  /// Reason if declined
+  declineReason      String?
+  /// Whether the vendor has submitted a quotation
+  hasQuoted          Boolean   @default(false)
+  /// Optional notes about the assignment
+  notes              String?
+  /// Number of commercial submissions made by this vendor for this assignment.
+  /// Enforced to a maximum of FOUR in the initial round.
+  offersSubmitted    Int       @default(0)
+  /// True once the vendor has used all four submissions.
+  finalOfferSubmitted Boolean  @default(false)
+  /// The current commercial round. Round 1 is the initial four-offer round;
+  /// each buyer-reopened round increments this.
+  commercialRound    Int       @default(1)
+  /// When the vendor response deadline was extended, if any.
+  deadlineExtendedAt DateTime?
+  /// Reason for the deadline extension.
+  deadlineExtensionReason String?
+  /// ISO currency code for this assignment's commercial round.
+  currency           String?   @default("INR")
+  assignedBy         User?     @relation("VendorAssignments", fields: [assignedById], references: [id])
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             Vendor             @relation("VendorAssignments", fields: [vendorId], references: [id], onDelete: Cascade)
+  request            ProcurementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  commercialOffers   CommercialOffer[]
+
+  @@unique([requestId, vendorId])
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([assignedById])
+}
+
+/// Commercial history for a vendor — recorded spend, quote counts, etc.
+/// Money fields use Decimal for precision; never store as Float.
+model VendorCommercialHistory {
+  id                 String    @id @default(cuid())
+  vendorId           String
+  tenantId           String
+  /// Period start (month)
+  periodStart        DateTime
+  /// Total spend in this period
+  totalSpend         Decimal   @db.Decimal(12,2)
+  /// Number of purchase orders in this period
+  orderCount         Int       @default(0)
+  /// Average discount percentage
+  avgDiscountPct     Float?
+  /// Currency code, e.g. "INR"
+  currency           String    @default("INR")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+   @@index([tenantId])
+   @@index([vendorId])
+   @@index([periodStart])
+}
+
+/// A vendor's structured commercial offer in response to an assigned requirement.
+///
+/// The `CommercialOffer` is the parent lifecycle entity. Each revision the vendor
+/// submits is stored as an immutable `CommercialOfferSubmission` — the submitted
+/// amounts are never overwritten. Offer numbering is sequential per vendor
+/// assignment and resets on a buyer-reopened commercial round.
+model CommercialOffer {
+  id                    String                       @id @default(cuid())
+  tenantId              String
+  requestId             String
+  vendorAssignmentId    String
+  vendorId              String
+  /// The latest submission number (1–4) within the current round.
+  currentSubmissionNumber Int @default(0)
+  /// The current overall lifecycle status (draft → submitted → final, etc.).
+  status                OfferStatus                  @default(VENDOR_INVITED)
+  /// What kind of offer this is, so the editor adapts its fields.
+  offerType             OfferType                    @default(PRODUCT)
+  /// Number of submissions made in the current commercial round.
+  submissionsInRound    Int                          @default(0)
+  /// True once the vendor has used all four submissions in the initial round.
+  finalOfferSubmitted   Boolean                      @default(false)
+  /// The current commercial round. Round 1 is the initial four-offer round.
+  commercialRound       Int                          @default(1)
+  /// ISO 4217 currency code. Must match the assignment currency.
+  currency              String                       @default("INR")
+  /// When the vendor response deadline expires for this offer.
+  deadline              DateTime?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+   tenant                Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   request               ProcurementRequest           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+   vendorAssignment      VendorAssignment             @relation(fields: [vendorAssignmentId], references: [id], onDelete: Cascade)
+   vendor                Vendor                       @relation("OfferVendor", fields: [vendorId], references: [id], onDelete: Cascade)
+   submissions           CommercialOfferSubmission[]
+   events                OfferEvent[]
+
+  @@unique([vendorAssignmentId, commercialRound])
+  @@index([tenantId])
+  @@index([requestId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+/// An immutable snapshot of a single commercial submission.
+///
+/// Once created, the monetary and terms fields on a submission are never
+/// updated. A revised offer creates a new submission that links back to the
+/// previous one via `previousSubmissionId`, forming an auditable chain.
+model CommercialOfferSubmission {
+  id                    String                       @id @default(cuid())
+  commercialOfferId     String
+  tenantId              String
+  /// 1, 2, 3, or 4 within the current round, reset by a reopened round.
+  submissionNumber      Int
+  /// Links to the previous submission in the chain, for audit history.
+  previousSubmissionId  String?
+  /// What kind of offer — determines which structured fields are populated.
+  offerType             OfferType
+  /// ISO 4217 currency code. The original currency is always preserved.
+  currency              String
+  /// --- Core monetary fields (Decimal for exact arithmetic) ---
+  /// Tax-exclusive subtotal (unitPrice × quantity, or recurring subtotal).
+  subTotal              Decimal                     @db.Decimal(18, 4)
+  /// Tax amount.
+  taxAmount             Decimal                     @default(0) @db.Decimal(18, 4)
+  /// Everything the buyer will pay.
+  totalAmount           Decimal                     @db.Decimal(18, 4)
+  /// Discount applied, as a flat amount.
+  discountAmount        Decimal?                    @db.Decimal(18, 4)
+  /// Discount applied, as a percentage (0–100).
+  discountPercentage    Float?
+  /// --- Product-specific fields ---
+  unitPrice             Decimal?                    @db.Decimal(18, 4)
+  quantity              Int?
+  /// --- Service / project fields ---
+  contractDuration      String?
+  milestones            Json?
+  deliverables          Json?
+  serviceLevels         Json?
+  staffingAssumptions   String?
+  /// --- SaaS subscription fields ---
+  numberOfLicenses      Int?
+  billingFrequency      String?
+  subscriptionTerm      String?
+  renewalTerms          String?
+  implementationFees    Decimal?                    @db.Decimal(18, 4)
+  recurringFees         Decimal?                    @db.Decimal(18, 4)
+  oneTimeFees           Decimal?                    @db.Decimal(18, 4)
+  /// --- Common commercial terms ---
+  /// Delivery date for products, or service commencement date.
+  deliveryDate          DateTime?
+  paymentTerms          String?
+  /// How long the offer is valid for.
+  offerValidityDays     Int?
+  offerValidityDate     DateTime?
+  /// Free-text commercial conditions (INCOTERMS, etc.).
+  commercialConditions  String?
+  /// Free-text scope description.
+  scope                 String?
+  /// Free-text exclusions.
+  exclusions            String?
+  /// Document IDs attached to this submission.
+  supportingDocuments   String[]                    @default([])
+  /// --- Compliance ---
+  complianceStatus      OfferComplianceStatus       @default(REQUIRES_REVIEW)
+  /// Machine-generated compliance notes.
+  complianceDetails     Json?
+  /// --- Submission metadata ---
+  submittedAt           DateTime?
+  submittedById         String?
+  /// True for the fourth submission in the initial round.
+  isFinal               Boolean                     @default(false)
+  /// Idempotency key for safe retries.
+  idempotencyKey        String?                     @unique
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+   tenant                Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   commercialOffer       CommercialOffer             @relation(fields: [commercialOfferId], references: [id], onDelete: Cascade)
+    submittedBy           User?                       @relation("OfferSubmitter", fields: [submittedById], references: [id])
+    previousSubmission    CommercialOfferSubmission?  @relation("OfferSubmissionChain", fields: [previousSubmissionId], references: [id])
+    nextSubmissions        CommercialOfferSubmission[] @relation("OfferSubmissionChain")
+    offerEvents           OfferEvent[]
+    purchaseApprovalRequests PurchaseApprovalRequest[]
+    deals                Deal[]
+
+    @@unique([commercialOfferId, submissionNumber])
+   @@index([tenantId])
+  @@index([commercialOfferId])
+  @@index([submissionNumber])
+  @@index([previousSubmissionId])
+  @@index([submittedById])
+}
+
+/// Audit trail for commercial offer actions.
+enum OfferEventType {
+  OFFER_DRAFT_CREATED
+  OFFER_DRAFT_UPDATED
+  OFFER_SUBMITTED
+  OFFER_REVISED
+  OFFER_REVIEWED
+  OFFER_WITHDRAWN
+  OFFER_DECLINED
+  OFFER_EXPIRED
+  REJECTED_AS_NONCOMPLIANT
+  COMPLIANCE_EVALUATED
+  COMMERCIAL_PROCESS_REOPENED
+  CLARIFICATION_REQUESTED
+  CLARIFICATION_ANSWERED
+  DEADLINE_EXTENDED
+}
+
+model OfferEvent {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  commercialOfferId   String
+  submissionId        String?
+  /// e.g. OFFER_DRAFT_CREATED, OFFER_SUBMITTED, OFFER_REVISED, etc.
+  eventType           OfferEventType
+  /// Human-readable description of the event.
+  description         String
+  /// The user or system that triggered the event.
+  actorId             String?
+  /// Arbitrary context about the event.
+  metadata          Json?
+  createdAt           DateTime            @default(now())
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  commercialOffer     CommercialOffer     @relation(fields: [commercialOfferId], references: [id], onDelete: Cascade)
+  submission          CommercialOfferSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  actor               User?               @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId])
+  @@index([commercialOfferId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+/// Types of commercial offers.
+enum OfferType {
+  /// Physical goods / products.
+  PRODUCT
+  /// Professional services or consulting engagements.
+  SERVICE
+  /// Software subscriptions and SaaS licensing.
+  SOFTWARE_SUBSCRIPTION
+}
+
+/// Lifecycle status of a commercial offer.
+///
+/// This tracks the overall state of the offer container, not individual submissions.
+enum OfferStatus {
+  /// The vendor has been invited but hasn't started an offer.
+  VENDOR_INVITED
+  /// The vendor has accepted the invitation and can prepare an offer.
+  VENDOR_ACCEPTED
+  /// The vendor is working on a draft submission.
+  OFFER_DRAFT
+  /// The vendor submitted a commercial offer.
+  OFFER_SUBMITTED
+  /// The buyer is reviewing the submitted offer.
+  OFFER_UNDER_REVIEW
+  /// The vendor submitted a revised offer (within the 4-offer limit).
+  OFFER_REVISED
+  /// The fourth and final offer has been submitted.
+  FINAL_OFFER_SUBMITTED
+  /// The vendor declined the opportunity.
+  DECLINED
+  /// The vendor withdrew their offer.
+  WITHDRAWN
+  /// The offer deadline passed before submission.
+  EXPIRED
+  /// The offer was rejected as non-compliant with mandatory requirements.
+  REJECTED_AS_NONCOMPLIANT
+  /// The buyer reopened the commercial process after the fourth offer.
+  COMMERCIAL_PROCESS_REOPENED
+}
+
+/// Compliance evaluation result for a commercial submission.
+enum OfferComplianceStatus {
+  /// All mandatory fields are present and values satisfy deterministic rules.
+  COMPLIANT
+  /// Some mandatory fields are missing or partially satisfied.
+  PARTIALLY_COMPLIANT
+  /// A mandatory commercial term is violated.
+  NON_COMPLIANT
+  /// Not yet evaluated — requires manual review.
+  REQUIRES_REVIEW
+}
+
+/// Potential duplicate detection between two vendors.
+/// `primaryVendorId` is the canonical record; `secondaryVendorId` is the
+/// suspected duplicate. Confidence indicates match quality.
+model VendorDuplicate {
+  id                 String                    @id @default(cuid())
+  primaryVendorId    String
+  secondaryVendorId  String
+  tenantId           String
+  confidence         VendorDuplicateConfidence
+  /// Which fields matched, e.g. ["email", "phone"]
+  matchedFields      Json
+  /// Confidence score 0..100
+  score              Float
+  /// When the duplicate was detected
+  detectedAt         DateTime                @default(now())
+  /// Whether a human confirmed the match
+  confirmed          Boolean                 @default(false)
+  confirmedById      String?
+  confirmedAt        DateTime?
+  /// The canonical (surviving) vendor
+  primaryVendor      Vendor                  @relation("VendorDuplicatesPrimary", fields: [primaryVendorId], references: [id], onDelete: Cascade)
+  /// The suspected duplicate vendor
+  secondaryVendor    Vendor                  @relation("VendorDuplicatesSecondary", fields: [secondaryVendorId], references: [id], onDelete: Cascade)
+  confirmedBy        User?                   @relation(fields: [confirmedById], references: [id])
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([primaryVendorId, secondaryVendorId])
+  @@index([tenantId])
+  @@index([confidence])
+  @@index([confirmed])
+}
+
+/// Audit trail for vendor lifecycle events (onboarding, matching, assignment, etc.)
+model VendorEvent {
+  id                 String    @id @default(cuid())
+  vendorId           String
+  tenantId           String
+  /// e.g. "ONBOARDING_STATUS_CHANGED", "MATCHED", "ASSIGNED"
+  eventType          String
+  /// Human-readable description
+  description        String
+  /// Actor who triggered the event
+  actorId            String?
+  /// Arbitrary metadata (JSON) — context about the event
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  actor              User?     @relation("VendorEventActor", fields: [actorId], references: [id])
+
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  userId    String
+  type      NotificationType
+  priority  NotificationPriority @default(NORMAL)
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean              @default(false)
+  readAt    DateTime?
+  tenantId  String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  /// Unique per logical in-app notification. A repeated trigger - a retried
+  /// request, two approvals fired together - loses the insert race instead of
+  /// showing the user the same alert twice. Null for notifications written
+  /// before deduplication, which Postgres permits to repeat.
+  dedupeKey String?              @unique
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User                 @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model QuoteAnalysis {
+  id          String            @id @default(cuid())
+  quoteId     String
+  type        QuoteAnalysisType
+  content     Json
+  confidence  Float             @default(0)
+  evidence    Json?
+  generatedBy String?
+  tenantId    String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  quote       Quote             @relation("quoteAnalyses", fields: [quoteId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation("quoteAnalyses", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([quoteId])
+  @@index([type])
+}
+
+model NegotiationMessage {
+  id          String            @id @default(cuid())
+  dealRoomId  String
+  senderId    String
+  senderRole  String
+  content     String
+  messageType String            @default("TEXT")
+  metadata    Json?
+  targetPrice Float?
+  status      NegotiationStatus @default(ACTIVE)
+  tenantId    String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  dealRoom    DealRoom          @relation(fields: [dealRoomId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation("negotiationMessages", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([dealRoomId])
+  @@index([createdAt])
+}
+
+model PriceBenchmark {
+  id          String   @id @default(cuid())
+  tenantId    String
+  categoryId  String?
+  item        String?
+  location    String?
+  quantity    Int?
+  unit        String?
+  minPrice    Float
+  avgPrice    Float
+  maxPrice    Float
+  sampleSize  Int
+  dataSource  String
+  periodStart DateTime
+  periodEnd   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation("priceBenchmarks", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([item])
+  @@index([periodStart, periodEnd])
+}
+
+model SavingsRecord {
+  id                  String             @id @default(cuid())
+  dealId              String?            @unique
+  requestId           String
+  buyerId             String
+  vendorId            String
+  type                SavingsType
+  originalQuoteAmount Float
+  finalAcceptedAmount Float
+  baselineAmount      Float?
+  baselineSource      String?
+  baselinePeriodStart DateTime?
+  baselinePeriodEnd   DateTime?
+  savingsAmount       Float
+  savingsPercentage   Float
+  calculationMethod   String
+  evidence            Json?
+  verifiedAt          DateTime?
+  verifiedBy          String?
+  tenantId            String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  buyer               User               @relation("SavingsRecordBuyer", fields: [buyerId], references: [id])
+  request             ProcurementRequest @relation("savingsRecords", fields: [requestId], references: [id], onDelete: Cascade)
+  tenant              Tenant             @relation("savingsRecords", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor              Vendor             @relation("savingsRecords", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([type])
+  @@index([requestId])
+}
+
+/// A purchase order created from an accepted Deal. Commercial terms are copied
+/// from the accepted offer at creation time and never silently overwritten:
+/// later amendments are recorded through audit entries and status changes.
+model PurchaseOrder {
+  id                            String                   @id @default(cuid())
+  poNumber                      String                   @unique
+  dealId                        String                   @unique
+  requestId                     String
+  buyerId                       String
+  vendorId                      String
+  status                        PurchaseOrderStatus      @default(DRAFT)
+  currency                      String                   @default("INR")
+  itemName                      String
+  description                   String?
+  quantity                      Int
+  unit                          String?
+  unitPrice                     Decimal                  @db.Decimal(18, 4)
+  taxRate                       Decimal                  @default(0) @db.Decimal(9, 4)
+  taxAmount                     Decimal                  @default(0) @db.Decimal(18, 4)
+  freightAmount                 Decimal                  @default(0) @db.Decimal(18, 4)
+  installationAmount            Decimal                  @default(0) @db.Decimal(18, 4)
+  otherCharges                  Decimal                  @default(0) @db.Decimal(18, 4)
+  otherChargesDetails           String?
+  subtotal                      Decimal                  @db.Decimal(18, 4)
+  totalAmount                   Decimal                  @db.Decimal(18, 4)
+  acceptedOfferId               String
+  acceptedOfferSnapshot         Json?
+  deliveryAddress               String?
+  expectedDeliveryDate          DateTime?
+  actualDeliveryDate            DateTime?
+  paymentTerms                  String?
+  warrantyMonths                Int?
+  notes                         String?
+  terms                         String?
+  issuedAt                      DateTime?
+  supplierConfirmedAt           DateTime?
+  closedAt                      DateTime?
+  cancelledAt                   DateTime?
+  rejectionReason               String?
+  supplierConfirmedDeliveryDate DateTime?
+  dispatchTrackingRef           String?
+  dispatchNotes                 String?
+  tenantId                      String
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  approvalRequestId             String?                  @unique
+  deliveryEvents                DeliveryEvent[]
+  documents                     Document[]
+  goodsReceipts                 GoodsReceipt[]
+  invoices                      Invoice[]
+  verifications                 InvoiceVerification[]
+  payments                      Payment[]
+  approvalRequest               PurchaseApprovalRequest?
+  buyer                         User                     @relation("PurchaseOrderBuyer", fields: [buyerId], references: [id])
+  deal                          Deal                     @relation(fields: [dealId], references: [id])
+  request                       ProcurementRequest       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tenant                        Tenant                   @relation("purchaseOrders", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor                        Vendor                   @relation("PurchaseOrderVendor", fields: [vendorId], references: [id])
+  approvals                     PurchaseOrderApproval[]
+
+  @@index([tenantId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([poNumber])
+  @@index([requestId])
+  @@index([approvalRequestId])
+}
+
+/// Multi-level approval record for a purchase order. Levels are created up-front
+/// from the tenant approval policy so issuing is gated on all required approvals.
+model PurchaseOrderApproval {
+  id           String         @id @default(cuid())
+  poId         String
+  level        Int
+  requiredRole UserRole
+  approverId   String?
+  status       ApprovalStatus @default(PENDING)
+  comments     String?
+  decidedAt    DateTime?
+  decidedById  String?
+  tenantId     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  approver     User?          @relation("POApprover", fields: [approverId], references: [id])
+  decidedBy    User?          @relation("POApprovedBy", fields: [decidedById], references: [id])
+  po           PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation("purchaseOrderApprovals", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([poId, level])
+  @@index([tenantId])
+  @@index([status])
+}
+
+/// Chronological delivery milestone recorded by the supplier (or buyer noting an
+/// exception). This is a manual/explicit status trail - NAVO does not poll any
+/// carrier system.
+model DeliveryEvent {
+  id                    String            @id @default(cuid())
+  poId                  String
+  type                  DeliveryEventType
+  notes                 String?
+  location              String?
+  carrierName           String?
+  trackingRef           String?
+  estimatedDeliveryDate DateTime?
+  occurredAt            DateTime          @default(now())
+  actorId               String
+  documentIds           String[]
+  tenantId              String
+  createdAt             DateTime          @default(now())
+  actor                 User              @relation("DeliveryEventActor", fields: [actorId], references: [id])
+  po                    PurchaseOrder     @relation(fields: [poId], references: [id], onDelete: Cascade)
+  tenant                Tenant            @relation("deliveryEvents", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@index([tenantId])
+  @@index([type])
+}
+
+/// A goods receipt records what physically arrived. Multiple receipts against one
+/// PO are supported for partial deliveries; order status is derived from the
+/// sum of accepted quantities so a PO is never marked delivered on a part receipt.
+model GoodsReceipt {
+  id               String        @id @default(cuid())
+  receiptNumber    String        @unique
+  poId             String
+  orderedQuantity  Int
+  receivedQuantity Int
+  acceptedQuantity Int
+  rejectedQuantity Int
+  receiptDate      DateTime      @default(now())
+  receivedById     String
+  conditionNotes   String?
+  discrepancies    Json?
+  documentIds      String[]
+  tenantId         String
+  createdAt        DateTime      @default(now())
+  po               PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  receivedBy       User          @relation("GoodsReceiptRecorder", fields: [receivedById], references: [id])
+  tenant           Tenant        @relation("goodsReceipts", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@index([tenantId])
+}
+
+/// A supplier invoice raised against a confirmed purchase order. `extractedData`
+/// holds AI/OCR-extracted values and is kept separate from the verified
+/// three-way match result so extracted data is never presented as verified.
+model Invoice {
+  id                  String                @id @default(cuid())
+  invoiceNumber       String
+  poId                String
+  vendorId            String
+  status              InvoiceStatus         @default(SUBMITTED)
+  currency            String                @default("INR")
+  invoiceDate         DateTime
+  dueDate             DateTime?
+  subtotal            Decimal               @db.Decimal(18, 4)
+  taxRate             Decimal?              @db.Decimal(9, 4)
+  taxAmount           Decimal               @default(0) @db.Decimal(18, 4)
+  freightAmount       Decimal               @default(0) @db.Decimal(18, 4)
+  otherCharges        Decimal               @default(0) @db.Decimal(18, 4)
+  otherChargesDetails String?
+  totalAmount         Decimal               @db.Decimal(18, 4)
+  description         String?
+  extractedData       Json?
+  extractionMethod    String?
+  extractedAt         DateTime?
+  documentIds         String[]
+  tenantId            String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  submittedById       String?
+  documents           Document[]
+  po                  PurchaseOrder         @relation(fields: [poId], references: [id], onDelete: Cascade)
+  submittedBy         User?                 @relation("InvoiceSubmitter", fields: [submittedById], references: [id])
+  tenant              Tenant                @relation("invoices", fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor              Vendor                @relation("InvoiceVendor", fields: [vendorId], references: [id])
+  verifications       InvoiceVerification[]
+  payments            Payment[]
+
+  @@unique([vendorId, invoiceNumber])
+  @@index([poId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+/// Result of the deterministic three-way match (PO ↔ Goods Receipt ↔ Invoice).
+/// Every discrepancy records the field, expected vs actual values and the delta
+/// so a reviewer can see exactly what caused it.
+model InvoiceVerification {
+  id              String             @id @default(cuid())
+  invoiceId       String
+  poId            String
+  status          InvoiceMatchStatus @default(NOT_STARTED)
+  matched         Boolean            @default(false)
+  discrepancies   Json?
+  checkedFields   Json?
+  toleranceAmount Decimal            @default(0) @db.Decimal(18, 4)
+  verifiedById    String?
+  verifiedAt      DateTime?
+  notes           String?
+  tenantId        String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  invoice         Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  po              PurchaseOrder      @relation(fields: [poId], references: [id], onDelete: Cascade)
+  tenant          Tenant             @relation("invoiceVerifications", fields: [tenantId], references: [id], onDelete: Cascade)
+  verifiedBy      User?              @relation("InvoiceVerifier", fields: [verifiedById], references: [id])
+
+  @@index([invoiceId])
+  @@index([poId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+/// Payment progress is recorded for reporting only. NAVO does not initiate bank
+/// or payment-gateway transfers; a user records an externally made payment.
+model Payment {
+  id            String        @id @default(cuid())
+  poId          String
+  invoiceId     String?
+  status        PaymentStatus @default(NOT_DUE)
+  amount        Decimal       @default(0) @db.Decimal(18, 4)
+  currency      String        @default("INR")
+  paidAmount    Decimal       @default(0) @db.Decimal(18, 4)
+  reference     String?
+  paymentMethod String?
+  paidAt        DateTime?
+  dueDate       DateTime?
+  notes         String?
+  recordedById  String
+  tenantId      String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
+  po            PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  recordedBy    User          @relation("PaymentRecorder", fields: [recordedById], references: [id])
+  tenant        Tenant        @relation("payments", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+/// Uploaded supporting file. Bytes are stored in the database so access is always
+/// tenant-scoped and authorized - there is no public/static file path.
+model Document {
+  id           String           @id @default(cuid())
+  poId         String?
+  invoiceId    String?
+  category     DocumentCategory
+  fileName     String
+  mimeType     String
+  size         Int
+  content      Bytes
+  uploadedById String
+  tenantId     String
+  createdAt    DateTime         @default(now())
+  invoice      Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  po           PurchaseOrder?   @relation(fields: [poId], references: [id], onDelete: Cascade)
+  tenant       Tenant           @relation("documents", fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy   User             @relation("DocumentUploader", fields: [uploadedById], references: [id])
+
+  @@index([poId])
+  @@index([invoiceId])
+  @@index([tenantId])
+}
+
+/// A requirement draft created through the conversational AI intake flow.
+/// Unlike ProcurementRequest, this represents the pre-formalization state where
+/// the buyer is still clarifying what they need. It becomes a ProcurementRequest
+/// when the buyer confirms and the requirement is commercially actionable.
+model RequirementDraft {
+  id                     String                    @id @default(cuid())
+  tenantId               String
+  userId                 String
+  copilotConversationId  String?                   @unique
+  /// Current state in the intake flow
+  state                  RequirementDraftState     @default(NEW)
+  /// Core extracted fields (always present when known)
+  title                  String?
+  category               String?
+  item                   String?
+  description            String?
+  specifications         Json?
+  quantity               Int?
+  unit                   String?
+  budget                 Decimal?                  @db.Decimal(18, 4)
+  currency               String?                   @default("INR")
+  location               String?
+  requiredBy             DateTime?
+  serviceDuration        String?
+  contractDuration       String?
+  qualityRequirements    String?
+  brandPreference        String?
+  model                  String?
+  complianceRequirements String?
+  certifications         String?
+  paymentExpectations    String?
+  deliveryExpectations   String?
+  otherRequirements      Json?
+  /// What the AI still needs to ask about
+  missingFields          String[]                  @default([])
+  /// When the draft was confirmed and ready for sourcing
+  confirmedAt            DateTime?
+  confirmedById          String?
+  /// Link to the created ProcurementRequest
+  requestId              String?                   @unique
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  version                Int                       @default(1)
+  clarifications         ClarificationQuestion[]   @relation("ClarificationQuestions")
+  confirmedBy            User?                     @relation("RequirementDraftConfirmedBy", fields: [confirmedById], references: [id])
+  request                ProcurementRequest?       @relation("RequirementDraftRequest", fields: [requestId], references: [id])
+  tenant                 Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User                      @relation("RequirementDraftUser", fields: [userId], references: [id])
+  versions               RequirementDraftVersion[] @relation("DraftVersions")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([state])
+  @@index([copilotConversationId])
+}
+
+/// Version history for requirement drafts
+model RequirementDraftVersion {
+  id            String           @id @default(cuid())
+  draftId       String
+  versionNumber Int
+  changeSummary String
+  changedFields String[]         @default([])
+  snapshot      Json
+  changedById   String?
+  createdAt     DateTime         @default(now())
+  draft         RequirementDraft @relation("DraftVersions", fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, versionNumber])
+  @@index([draftId, createdAt])
+}
+
+/// A clarification question asked by the AI during intake
+model ClarificationQuestion {
+  id           String           @id @default(cuid())
+  draftId      String
+  field        String
+  question     String
+  aiSuggestion String?
+  userAnswer   String?
+  answeredAt   DateTime?
+  order        Int
+  draft        RequirementDraft @relation("ClarificationQuestions", fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, field])
+  @@index([draftId])
+  @@index([field])
+}
+
+/// One organization's department-approval configuration for requirements.
+model RequirementApprovalPolicy {
+  id                        String                       @id @default(cuid())
+  tenantId                  String                       @unique
+  name                      String                       @default("Requirement approval policy")
+  description               String?
+  currency                  String                       @default("INR")
+  isActive                  Boolean                      @default(true)
+  version                   Int                          @default(1)
+  /// Purchases whose estimated value is strictly below this proceed without a
+  /// department approval. Null disables the exemption entirely.
+  autoApproveBelowAmount    Decimal?                     @db.Decimal(18, 4)
+  /// Whether a requester can approve their own requirement (off by default).
+  allowSelfApproval         Boolean                      @default(false)
+  selfApprovalJustification String?
+  /// Which changes force reapproval of an already-approved requirement.
+  reapprovalRules           Json?
+  updatedById               String?
+  createdAt                 DateTime                     @default(now())
+  updatedAt                 DateTime                     @updatedAt
+  tenant                    Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requests                  RequirementApprovalRequest[]
+  rules                     RequirementApprovalRule[]
+
+  @@index([tenantId])
+}
+
+/// A scoped condition plus the approval hierarchy it requires for requirements.
+model RequirementApprovalRule {
+  id              String                       @id @default(cuid())
+  tenantId        String
+  policyId        String
+  name            String
+  priority        Int                          @default(100)
+  isActive        Boolean                      @default(true)
+  /// Inclusive lower bound, exclusive upper bound, both in the policy currency.
+  minAmount       Decimal?                     @db.Decimal(18, 4)
+  maxAmount       Decimal?                     @db.Decimal(18, 4)
+  /// Scope attributes. Null matches any value.
+  department      String?
+  categoryId      String?
+  costCenter      String?
+  /// When false, requirements matching this rule need no approval at all.
+  requireApproval Boolean                      @default(true)
+  /// Ordered approval hierarchy, e.g.
+  /// [{ "level": 1, "requiredRole": "COMPANY_ADMIN", "label": "Department Head review" }]
+  levels          Json
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  requests        RequirementApprovalRequest[]
+  category        Category?                    @relation(fields: [categoryId], references: [id])
+  policy          RequirementApprovalPolicy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive, priority])
+  @@index([policyId])
+  @@index([categoryId])
+}
+
+/// One department approval request: a buyer asking their Department Head to
+/// approve the business need before vendor sourcing begins.
+model RequirementApprovalRequest {
+  id                  String                        @id @default(cuid())
+  reference           String
+  tenantId            String
+  /// The requirement this approval is for
+  requestId           String
+  submittedById       String
+  status              RequirementApprovalStatus     @default(PENDING_APPROVAL)
+  /// Estimated commercial snapshot (Decimal; never edited after creation)
+  currency            String                        @default("INR")
+  estimatedAmount     Decimal                       @db.Decimal(18, 4)
+  /// The amount actually compared against thresholds.
+  thresholdAmount     Decimal                       @db.Decimal(18, 4)
+  /// Policy provenance
+  policyId            String?
+  policyVersion       Int?
+  appliedRuleId       String?
+  policySnapshot      Json?
+  ruleSnapshot        Json?
+  requesterComment    String?
+  /// Summary of the requirement at submission time.
+  requirementSnapshot Json?
+  /// The level currently awaiting a decision.
+  currentLevel        Int                           @default(1)
+  revision            Int                           @default(1)
+  /// Chain of revisions. A revised requirement supersedes its predecessor.
+  parentRequestId     String?
+  supersededById      String?
+  supersedeReason     String?
+  supersededAt        DateTime?
+  decidedAt           DateTime?
+  approvedAt          DateTime?
+  approvedById        String?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  dueAt               DateTime?
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  decisions           RequirementApprovalDecision[]
+  appliedRule         RequirementApprovalRule?      @relation(fields: [appliedRuleId], references: [id])
+  approvedBy          User?                         @relation("RequirementApprovalApprovedBy", fields: [approvedById], references: [id])
+  policy              RequirementApprovalPolicy?    @relation(fields: [policyId], references: [id])
+  request             ProcurementRequest            @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  submittedBy         User                          @relation("RequirementApprovalSubmittedBy", fields: [submittedById], references: [id])
+  tenant              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([reference, tenantId])
+  @@unique([requestId, revision, tenantId])
+  @@index([tenantId, status])
+  @@index([requestId, status])
+  @@index([submittedById, status])
+}
+
+/// One approval level of a requirement approval request.
+model RequirementApprovalDecision {
+  id                           String                            @id @default(cuid())
+  tenantId                     String
+  requirementApprovalRequestId String
+  level                        Int
+  requiredRole                 UserRole
+  label                        String?
+  status                       RequirementApprovalDecisionStatus @default(PENDING)
+  /// The specific approver this level is routed to.
+  assignedApproverId           String?
+  /// Set when the level was reassigned or delegated.
+  delegatedFromApproverId      String?
+  delegationReason             String?
+  decidedById                  String?
+  /// Mandatory for REJECTED and CHANGES_REQUESTED; enforced in the service.
+  comments                     String?
+  decidedAt                    DateTime?
+  createdAt                    DateTime                          @default(now())
+  updatedAt                    DateTime                          @updatedAt
+  assignments                  RequirementApprovalAssignment[]
+  assignedApprover             User?                             @relation("RequirementApprovalAssignedApprover", fields: [assignedApproverId], references: [id])
+  decidedBy                    User?                             @relation("RequirementApprovalDecidedBy", fields: [decidedById], references: [id])
+  requirementApprovalRequest   RequirementApprovalRequest        @relation(fields: [requirementApprovalRequestId], references: [id], onDelete: Cascade)
+  tenant                       Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementApprovalRequestId, level])
+  @@index([tenantId, status])
+  @@index([assignedApproverId, status])
+}
+
+/// Permanent record of every reassignment or delegation of a requirement approval level.
+model RequirementApprovalAssignment {
+  id             String                      @id @default(cuid())
+  tenantId       String
+  decisionId     String
+  fromApproverId String?
+  toApproverId   String
+  reason         String
+  createdById    String
+  createdAt      DateTime                    @default(now())
+  createdBy      User                        @relation("RequirementApprovalAssignmentActor", fields: [createdById], references: [id])
+  decision       RequirementApprovalDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  tenant         Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  toApprover     User                        @relation("RequirementApprovalAssignmentTo", fields: [toApproverId], references: [id])
+
+  @@index([tenantId])
+  @@index([decisionId])
+  @@index([toApproverId])
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+  COMPANY_ADMIN
+  PROCUREMENT_MANAGER
+  FINANCE_APPROVER
+  REQUESTER
+  VIEWER
+  VENDOR
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  REQUIREMENT_EXTRACTED
+  VENDORS_IDENTIFIED
+  RFQ_CREATED
+  RFQ_SENT
+  QUOTES_RECEIVED
+  COMPARISON_COMPLETED
+  RECOMMENDATION_READY
+  APPROVAL_PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  PURCHASE_ORDER_CREATED
+  COMPLETED
+  CANCELLED
+  REQUESTED
+  REQUIREMENT_DRAFT
+  PENDING_DEPARTMENT_APPROVAL
+  APPROVED_FOR_SOURCING
+  REQUIREMENT_COMPLETION
+  VENDOR_MATCHING
+  VENDOR_INVITED
+  OFFERS_RECEIVED
+  COMMERCIAL_EVALUATION
+  NEGOTIATION_RECOMMENDED
+  NO_NEGOTIATION
+  NEGOTIATION
+  FINAL_COMMERCIAL_SELECTION
+  PENDING_FINAL_APPROVAL
+  DEAL_CONFIRMED
+  EXECUTION
+  SEND_BACK
+  EXPIRED
+}
+
+enum RFQStatus {
+  DRAFT
+  SENT
+  RESPONSES_RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum QuoteStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_APPROVAL
+  BLACKLISTED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VendorType {
+  MANUFACTURER
+  DISTRIBUTOR
+  WHOLESALE
+  RETAILER
+  SERVICE_PROVIDER
+  CONSULTING_FIRM
+  SYSTEM_INTEGRATOR
+  SAAS_PROVIDER
+  LOGISTICS_PROVIDER
+  CONTRACT_MANUFACTURER
+  PROFESSIONAL_SERVICES
+  MARKETPLACE_RESELLER
+  OTHER
+}
+
+enum VendorOnboardingStatus {
+  INVITED
+  APPLICATION_STARTED
+  APPLICATION_SUBMITTED
+  UNDER_REVIEW
+  VERIFICATION_REQUIRED
+  VERIFIED
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum VendorCertificationStatus {
+  SELF_DECLARED
+  VERIFIED
+  EXPIRED
+  REJECTED
+}
+
+enum VendorDocumentType {
+  COMPANY_REGISTRATION
+  TAX_DOCUMENT
+  CERTIFICATION
+  INSURANCE
+  SECURITY_CERTIFICATION
+  QUALITY_CERTIFICATE
+  BANK_DETAILS
+  CONTRACT
+  OTHER
+}
+
+enum VendorMatchingFactor {
+  CAPABILITY
+  GEOGRAPHY
+  CERTIFICATION
+  INDUSTRY_EXPERIENCE
+  AVAILABILITY
+  CAPACITY
+  HISTORICAL_PERFORMANCE
+  COMMERCIAL_HISTORY
+  VENDOR_STATUS
+  PRODUCT_SERVICE_FIT
+}
+
+enum VendorDuplicateConfidence {
+  LOW
+  MEDIUM
+  HIGH
+  EXACT
+}
+
+enum NotificationType {
+  VENDOR_INVITATION
+  INVITATION_ACCEPTED
+  NEW_OPPORTUNITY
+  CONNECTION_REQUEST
+  QUOTE_RESPONSE
+  DEAL_STATUS_CHANGE
+  AVAILABILITY_CHANGE
+  VENDOR_FEEDBACK
+  REQUIREMENT_PUBLISHED
+  MARKETPLACE_INTEREST
+  NEGOTIATION_MESSAGE
+  COUNTEROFFER
+  OFFER_ACCEPTED
+  DEAL_CLOSED
+  DEAL_CREATED
+  APPROVAL_ASSIGNED
+  APPROVAL_APPROVED
+  APPROVAL_REJECTED
+  APPROVAL_CHANGES_REQUESTED
+  PURCHASE_CONFIRMED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  STATUS_CHANGED
+  VENDOR_INVITED
+  QUOTE_RECEIVED
+  RECOMMENDATION_GENERATED
+  RFQ_CREATED
+  RFQ_SENT
+  CONNECTION_CREATED
+  CONNECTION_ACCEPTED
+  CONNECTION_DECLINED
+   OFFER_SUBMITTED
+   OFFER_ACCEPTED
+   DEAL_CLOSED
+   DEAL_CREATED
+   QUOTE_ANALYZED
+  NEGOTIATION_STARTED
+  COUNTEROFFER_SUBMITTED
+  SAVINGS_RECORDED
+  PURCHASE_ORDER_CREATED
+  PURCHASE_ORDER_UPDATED
+  PURCHASE_ORDER_SUBMITTED
+  PURCHASE_ORDER_APPROVED
+  PURCHASE_ORDER_REJECTED
+  PURCHASE_ORDER_ISSUED
+  PURCHASE_ORDER_CANCELLED
+  PURCHASE_ORDER_CLOSED
+  ORDER_CONFIRMED
+  ORDER_REJECTED_BY_SUPPLIER
+  DELIVERY_EVENT_RECORDED
+  GOODS_RECEIVED
+  INVOICE_SUBMITTED
+  INVOICE_VERIFIED
+  INVOICE_DISCREPANCY_FOUND
+  INVOICE_DISCREPANCY_RESOLVED
+  PAYMENT_RECORDED
+  DOCUMENT_UPLOADED
+  PO_CREATED
+  PO_SUBMITTED_FOR_APPROVAL
+  PO_APPROVAL_REQUESTED
+  PO_APPROVED
+  PO_AMENDED
+  ORDER_CONFIRMED_BY_SUPPLIER
+  DELIVERY_EVENT_ADDED
+  DELIVERY_EXCEPTION
+  DISCREPANCY_RESOLVED
+  PAYMENT_STATUS_UPDATED
+  DOCUMENT_DOWNLOADED
+  PO_ISSUED
+  PO_CANCELLED
+  PO_CLOSED
+  COPILOT_QUERY_ANSWERED
+  COPILOT_TOOL_INVOKED
+  COPILOT_TOOL_DENIED
+  COPILOT_ACTION_PROPOSED
+  COPILOT_ACTION_CONFIRMED
+  COPILOT_ACTION_EXECUTED
+  COPILOT_ACTION_FAILED
+  COPILOT_ACTION_DUPLICATE_BLOCKED
+  REQUIREMENT_PUBLISHED
+  REQUIREMENT_WITHDRAWN
+  REQUIREMENT_CLOSED
+  MARKETPLACE_INTEREST_EXPRESSED
+  MARKETPLACE_INTEREST_WITHDRAWN
+  QUOTE_SHORTLISTED
+  QUOTE_REJECTED_BY_BUYER
+  SELLER_MESSAGE_BLOCKED
+  VENDOR_BLOCKED
+  VENDOR_MUTED
+  VENDOR_UNBLOCKED
+  VENDOR_BLACKLISTED
+  ABUSE_REPORT_FILED
+  ABUSE_REPORT_RESOLVED
+  NEGOTIATION_MESSAGE_BLOCKED
+  MESSAGE_ATTACHMENT_ADDED
+  NEGOTIATION_ROOM_CLOSED
+  EMAIL_DELIVERY_FAILED
+  APPROVAL_POLICY_UPDATED
+  APPROVAL_RULE_UPDATED
+  PURCHASE_APPROVAL_SUBMITTED
+  PURCHASE_APPROVAL_AUTO_APPROVED
+  PURCHASE_APPROVAL_APPROVED
+  PURCHASE_APPROVAL_REJECTED
+  PURCHASE_APPROVAL_CHANGES_REQUESTED
+  PURCHASE_APPROVAL_REASSIGNED
+  PURCHASE_APPROVAL_INVALIDATED
+  PURCHASE_APPROVAL_CANCELLED
+  PURCHASE_CONFIRMED
+  REQUIREMENT_APPROVAL_INVALIDATED
+}
+
+/// Lifecycle of one purchase authorization request.
+///
+/// Kept distinct from `ApprovalStatus`, which is a single approver's verdict on
+/// a requirement. These values describe the *purchase*, and the separation is
+/// what stops an approved request from being shown as a completed purchase.
+enum PurchaseApprovalStatus {
+  /// Submitted and routed; at least one level is still open.
+  PENDING_APPROVAL
+  /// A manager returned it to the buyer with mandatory comments.
+  CHANGES_REQUESTED
+  /// Refused. Terminal until a revised offer is submitted.
+  REJECTED
+  /// Every required level approved. Not yet a purchase.
+  APPROVED
+  /// The buyer confirmed the purchase against the approved terms.
+  PURCHASE_CONFIRMED
+  /// Withdrawn by the buyer or an administrator.
+  CANCELLED
+  /// Replaced by a later revision, or invalidated by a material change.
+  SUPERSEDED
+}
+
+/// Verdict on one approval level. `SKIPPED` records a level that the applied
+/// rule withdrew (for example when a revision fell below a threshold), so the
+/// history explains why it is absent rather than showing a hole.
+enum PurchaseApprovalDecisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  SKIPPED
+}
+
+/// Commercial change that can force an existing approval back through the
+/// hierarchy. Which of these actually force reapproval is organization
+/// configuration, not code.
+enum PurchaseApprovalChangeTrigger {
+  PRICE_INCREASE
+  PRICE_DECREASE
+  QUANTITY_CHANGE
+  DELIVERY_TERMS_CHANGE
+  PAYMENT_TERMS_CHANGE
+  OTHER_TERMS_CHANGE
+  POLICY_CHANGE
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ISSUED
+  SUPPLIER_CONFIRMED
+  IN_PROGRESS
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+  CLOSED
+}
+
+enum DeliveryEventType {
+  CONFIRMED
+  PREPARATION
+  DISPATCH
+  IN_TRANSIT
+  PARTIALLY_DELIVERED
+  DELIVERED
+  EXCEPTION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  DISCREPANCIES_FOUND
+  REJECTED
+  DISPUTED
+}
+
+enum InvoiceMatchStatus {
+  NOT_STARTED
+  MATCHED
+  DISCREPANCIES
+}
+
+enum DiscrepancyType {
+  DUPLICATE_INVOICE
+  QUANTITY_MISMATCH
+  UNIT_PRICE_VARIATION
+  TAX_MISMATCH
+  TOTAL_MISMATCH
+  UNEXPECTED_CHARGE
+  MISSING_GOODS_RECEIPT
+  UNVERIFIED_TAX_DETAILS
+}
+
+enum DiscrepancySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum DiscrepancyResolution {
+  OPEN
+  ACCEPTED
+  WAIVED
+  REJECTED
+}
+
+enum PaymentStatus {
+  NOT_DUE
+  DUE
+  PARTIALLY_PAID
+  PAID
+  ON_HOLD
+  DISPUTED
+}
+
+enum DocumentCategory {
+  PURCHASE_ORDER
+  DELIVERY_NOTE
+  PROOF_OF_DELIVERY
+  INVOICE
+  TAX_INVOICE
+  SUPPORTING
+  RECEIPT
+}
+
+enum CopilotContextType {
+  REQUEST
+  VENDOR
+  RFQ
+  QUOTE
+  DEAL
+  DEAL_ROOM
+  PURCHASE_ORDER
+  INVOICE
+}
+
+enum CopilotActionType {
+  CREATE_DRAFT_REQUEST
+  DRAFT_NEGOTIATION_MESSAGE
+  DRAFT_PURCHASE_ORDER
+  REQUEST_QUOTATION
+  ADD_FOLLOW_UP_NOTE
+  OPEN_DEAL_ROOM
+}
+
+enum CopilotActionStatus {
+  /// Prepared and shown to the user; nothing has been written yet.
+  PROPOSED
+  CONFIRMED
+  EXECUTED
+  FAILED
+  /// The same action was proposed again in this conversation.
+  REJECTED_DUPLICATE
+  EXPIRED
+}
+
+/// Whether a requirement is invite-only or discoverable by eligible sellers.
+enum RequestVisibility {
+  /// Visible only to vendors the buyer explicitly invites via an RFQ.
+  PRIVATE
+  /// Discoverable in the Open Market by eligible, verified sellers.
+  OPEN_MARKET
+}
+
+enum InterestStatus {
+  /// Seller asked to be considered; no quotation submitted yet.
+  EXPRESSED
+  /// Seller submitted a quotation against the requirement.
+  QUOTED
+  /// Buyer shortlisted this seller's quotation.
+  SHORTLISTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum RestrictionKind {
+  /// Seller may never contact this buyer again.
+  BLOCK
+  /// Muted for a window; invitations still arrive but do not notify.
+  MUTE
+}
+
+enum ReportReason {
+  UNSOLICITED_CONTACT
+  SPAM
+  OFF_PLATFORM_PAYMENT
+  MISREPRESENTED_SUPPLIER
+  INAPPROPRIATE_CONTENT
+  FRAUD
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  /// Retryable failure; the next batch will try again.
+  FAILED
+  /// Given up on. Surfaced to admins rather than silently retried.
+  PERMANENTLY_FAILED
+  /// The recipient has already seen this; never send.
+  SUPPRESSED
+}
+
+enum NotificationFrequency {
+  IMMEDIATE
+  DIGEST
+  OFF
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum DealRoomStatus {
+  ACTIVE
+  NEGOTIATING
+  CLOSED
+  EXPIRED
+}
+
+enum DealOfferStatus {
+  ACTIVE
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+  WITHDRAWN
+  PENDING_APPROVAL
+}
+
+enum DealStatus {
+  ACCEPTED
+  ORDERED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+/// Execution phase of a deal after final approval. Drives the category-specific
+/// fulfillment workflow that follows deal creation.
+enum DealExecutionStatus {
+  /// Deal approved but no fulfillment activity recorded yet.
+  PENDING_EXECUTION
+  /// Supplier has acknowledged the deal / confirmed the order.
+  SUPPLIER_CONFIRMED
+  /// Procurement activity is underway (PO raised, work commenced, etc.).
+  IN_PROGRESS
+  /// Goods received or service milestone(s) completed.
+  FULFILLED
+  /// All fulfillment criteria are complete.
+  CLOSED
+  /// Execution was cancelled by the buyer before completion.
+  CANCELLED
+}
+
+/// How the underlying requirement is fulfilled, derived from the offer type.
+enum DealExecutionType {
+  /// Physical goods → PO + goods receipt.
+  PRODUCTS
+  /// Services / consulting → SOW + milestones + deliverables.
+  SERVICES
+  /// SaaS / subscription licensing → subscription tracking.
+  SAAS_SUBSCRIPTION
+  /// Project-based deliverables → milestones + deliverables.
+  PROJECT
+}
+
+/// Event types for the deal execution audit trail.
+enum DealExecutionEventType {
+  /// The deal was created from the approved final offer.
+  DEAL_CREATED
+  /// Supplier acknowledged / confirmed the order.
+  SUPPLIER_CONFIRMED
+  /// A purchase order was raised against the deal.
+  PURCHASE_ORDER_RAISED
+  /// Goods were received and accepted.
+  GOODS_RECEIVED
+  /// A service milestone was completed.
+  MILESTONE_COMPLETED
+  /// A project deliverable was accepted.
+  DELIVERABLE_ACCEPTED
+  /// A subscription was registered for tracking.
+  SUBSCRIPTION_REGISTERED
+  /// The execution phase advanced to a new status.
+  EXECUTION_STATUS_ADVANCED
+  /// The execution was cancelled.
+  EXECUTION_CANCELLED
+}
+
+/// Audit trail of execution-phase events for a deal.
+model DealExecutionEvent {
+  id                String                   @id @default(cuid())
+  dealId            String
+  tenantId          String
+  type              DealExecutionEventType
+  /// Human-readable summary of what happened.
+  description       String
+  /// The user who recorded the event.
+  actorId           String?
+  /// Arbitrary context (e.g. PO number, milestone index, receipt reference).
+  metadata          Json?
+  createdAt         DateTime                 @default(now())
+
+  actor             User?                     @relation("ExecutionActor", fields: [actorId], references: [id])
+  deal              Deal                      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([dealId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum NegotiationStatus {
+  ACTIVE
+  COUNTEROFFER_PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CLOSED
+}
+
+enum SavingsType {
+  VERIFIED
+  POTENTIAL
+  REALIZED
+}
+
+enum QuoteAnalysisType {
+  COMMERCIAL_SUMMARY
+  PRICE_BENCHMARK
+  HISTORICAL_COMPARISON
+  NEGOTIATION_STRATEGY
+  SAVINGS_ESTIMATION
+}
+
+enum RequirementDraftState {
+  NEW
+  UNDERSTANDING
+  CLARIFICATION
+  DRAFT
+  CONFIRMED
+  SOURCING
+  TRANSITIONED
+  ABANDONED
+}
+
+///
+/// This is the FIRST approval in the NAVO workflow: the Department Head approves
+/// the business need BEFORE vendor sourcing begins. This is distinct from the
+/// PurchaseApproval which happens AFTER vendor offers are received and a deal is
+/// negotiated (the SECOND approval - final commercial approval).
+enum RequirementApprovalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  SEND_BACK
+  CANCELLED
+  SUPERSEDED
+}
+
+enum RequirementApprovalDecisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  SKIPPED
+}

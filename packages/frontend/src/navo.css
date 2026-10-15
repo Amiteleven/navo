@@ -1,0 +1,138 @@
+/* NAVO Chat Styles */
+.navo-chat-page {
+  @apply flex flex-col h-screen bg-stone-50 relative;
+  background: radial-gradient(circle at top left, #fdfbfb 0%, #ebedee 100%);
+  font-family: 'Inter', sans-serif;
+}
+
+.navo-messages-area {
+  @apply flex-1 overflow-y-auto w-full pt-6 pb-32 px-4;
+  scroll-behavior: smooth;
+}
+
+.navo-messages-inner {
+  @apply max-w-4xl mx-auto space-y-6 flex flex-col relative min-h-full;
+}
+
+.navo-message-row {
+  @apply flex gap-4 duration-300;
+}
+
+.navo-message-user {
+  @apply justify-end;
+}
+
+.navo-message-navo {
+  @apply justify-start items-end;
+}
+
+.navo-avatar {
+  @apply flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md;
+}
+
+.navo-bubble-navo {
+  @apply max-w-[85%] bg-white border border-stone-100 rounded-2xl rounded-bl-sm p-4 text-[15px] leading-relaxed text-stone-800 shadow-sm relative;
+}
+
+.navo-bubble-user {
+  @apply max-w-[75%] bg-stone-900 text-white rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed shadow-md;
+}
+
+.navo-examples {
+  @apply absolute top-[40%] left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 text-center duration-500 z-10;
+}
+
+.navo-examples-label {
+  @apply text-sm font-semibold tracking-wider text-stone-400 uppercase mb-4;
+}
+
+.navo-examples-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-3;
+}
+
+.navo-example-chip {
+  @apply bg-white/60 backdrop-blur-md border border-white hover:border-blue-200 hover:bg-white text-stone-700 p-3 rounded-xl text-sm text-left shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+}
+
+.navo-composer {
+  @apply absolute bottom-0 left-0 w-full bg-gradient-to-t from-stone-50 via-stone-50 to-transparent pt-12 pb-6 px-4 z-20;
+}
+
+.navo-composer-inner {
+  @apply max-w-3xl mx-auto relative bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-stone-100 flex p-2 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all;
+}
+
+.navo-composer-textarea {
+  @apply flex-1 resize-none bg-transparent border-0 outline-none p-3 text-[15px] text-stone-800 placeholder-stone-400 max-h-32;
+}
+
+.navo-composer-actions {
+  @apply flex flex-col items-end justify-between pl-2 border-l border-stone-100;
+}
+
+.navo-composer-hint {
+  @apply text-[10px] text-stone-400 font-medium tracking-wide pt-1 pr-2;
+}
+
+.navo-send-btn {
+  @apply h-10 w-10 mt-auto bg-stone-900 hover:bg-stone-800 text-white rounded-xl flex items-center justify-center shadow-sm transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+}
+
+.navo-card {
+  @apply bg-white rounded-xl border border-stone-100 p-5 shadow-sm overflow-hidden relative transition-all;
+}
+
+.navo-card::before {
+  content: '';
+  @apply absolute top-0 left-0 w-1 h-full bg-stone-200;
+}
+
+.navo-requirement-card::before { @apply bg-blue-500; }
+.navo-approval-card::before { @apply bg-amber-500; }
+.navo-opportunity-card::before { @apply bg-purple-500; }
+.navo-eval-card::before { @apply bg-emerald-500; }
+.navo-deal-card::before { @apply bg-emerald-600; }
+
+.navo-card-header { @apply flex items-center justify-between border-b border-stone-100 pb-3; }
+.navo-card-label { @apply text-[11px] font-bold text-stone-500 tracking-wider; }
+.navo-card-title { @apply text-lg font-semibold text-stone-900 leading-tight; }
+.navo-card-fields { @apply grid gap-2.5; }
+.navo-field-row { @apply flex items-center text-sm; }
+.navo-field-label { @apply flex items-center text-stone-500 w-28 font-medium; }
+.navo-field-value { @apply text-stone-900 font-medium; }
+.navo-value-highlight { @apply text-emerald-700 font-bold; }
+.navo-card-footer { @apply mt-4 pt-4 border-t border-stone-100 flex items-center justify-between; }
+.navo-card-actions { @apply mt-5 pt-4 border-t border-stone-100 flex flex-wrap gap-2; }
+
+.navo-badge { @apply inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider; }
+.navo-badge-draft { @apply bg-blue-50 text-blue-700 border border-blue-200; }
+.navo-badge-pending { @apply bg-amber-50 text-amber-700 border border-amber-200; }
+.navo-badge-approved { @apply bg-emerald-50 text-emerald-700 border border-emerald-200; }
+.navo-badge-rejected { @apply bg-red-50 text-red-700 border border-red-200; }
+.navo-badge-changes { @apply bg-orange-50 text-orange-700 border border-orange-200; }
+.navo-badge-new { @apply bg-purple-50 text-purple-700 border border-purple-200; }
+
+.navo-status-dot { @apply w-2 h-2 rounded-full; }
+.navo-status-draft { @apply bg-blue-500; }
+
+.navo-btn { @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none; }
+.navo-btn-approve { @apply bg-stone-900 text-white hover:bg-stone-800 shadow-sm; }
+.navo-btn-secondary { @apply bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 hover:border-stone-300 shadow-sm; }
+.navo-btn-danger { @apply bg-red-50 text-red-700 hover:bg-red-100 border border-red-100; }
+.navo-btn-ghost { @apply text-stone-500 hover:text-stone-800 hover:bg-stone-100; }
+
+.navo-status-pending-bg { @apply bg-amber-50/50 border-amber-200/60; }
+.navo-status-approved-bg { @apply bg-emerald-50/50 border-emerald-200/60; }
+.navo-status-rejected-bg { @apply bg-red-50/50 border-red-200/60; }
+.navo-status-changes-bg { @apply bg-orange-50/50 border-orange-200/60; }
+
+.navo-vendor-avatar { @apply h-10 w-10 rounded-lg bg-gradient-to-br from-stone-800 to-stone-600 flex items-center justify-center text-white font-bold text-lg shadow-sm; }
+.navo-navo-assessment { @apply bg-blue-50/50 border border-blue-100/60 p-3 rounded-lg; }
+.navo-negotiation-tip { @apply bg-amber-50/50 border border-amber-100/60 p-3 rounded-lg; }
+.navo-deal-card { @apply bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60; }
+.navo-deal-icon { @apply h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20; }
+
+.navo-typing { @apply flex gap-1 items-center h-4; }
+.navo-typing span { @apply w-1.5 h-1.5 rounded-full bg-stone-400 animate-bounce; }
+.navo-typing span:nth-child(2) { animation-delay: 0.15s; }
+.navo-typing span:nth-child(3) { animation-delay: 0.3s; }
