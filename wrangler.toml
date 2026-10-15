@@ -1,0 +1,2 @@
+name = "navo"
+pages_build_output_dir = "./packages/frontend/dist"
