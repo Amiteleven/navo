@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: navo-backend
+    env: node
+    plan: starter
+    buildCommand: npm run build --workspace=packages/shared && npm run db:generate --workspace=packages/backend && npm run build --workspace=packages/backend
+    startCommand: npm run start --workspace=packages/backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4-turbo-preview
+      - key: RATE_LIMIT_MAX
+        value: "100"
+      - key: EMAIL_PROVIDER
+        value: log
