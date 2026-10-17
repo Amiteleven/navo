@@ -15,7 +15,8 @@
     "lint": "npm run lint --workspaces"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "wrangler": "^4.151.1"
   },
   "workspaces": [
     "packages/*"
